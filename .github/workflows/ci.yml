@@ -25,6 +25,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Verify Backend and API Startup
+    - name: Verify Backend and API Data Store
       run: |
-        python verify_all_api_endpoints.py
+        python test_backend_api.py
+
+    - name: Audit Train Data Pipeline
+      run: |
+        python test_train_pipeline.py
