@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GatiSetu - Dynamic ETA & Railway Operations</title>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet.js CSS for Railway Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    
+    <!-- MapLibre GL JS CSS for Control Room OpenFreeMap -->
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
+    
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+
+    <div class="global-app-container">
+        
+        <!-- ============================================================
+             1. TOP UNIFIED NAVIGATION BAR & GLOBAL BRANDING
+             ============================================================ -->
+        <header class="unified-navbar">
+            <div class="nav-inner-row">
+                <!-- Left: GatiSetu Logo & Branding -->
+                <div class="brand-section">
+                    <div class="brand-logo-badge">
+                        <i class="fa-solid fa-train-subway"></i>
+                    </div>
+                    <div class="brand-title-wrap">
+                        <div class="brand-title">GatiSetu</div>
+                        <div class="brand-sub">Dynamic ETA & Railway Operations</div>
+                    </div>
+                </div>
+
+                <!-- Right: Role / Staff Actions -->
+                <div class="header-role-actions">
+                    <nav class="header-role-nav" id="navPortalTabs">
+                        <button class="role-pill-btn pill-passenger active" data-target-view="view-passenger" id="btnRolePassenger">
+                            <i class="fa-solid fa-user"></i>
+                            <span>Passenger</span>
+                        </button>
+                        <button class="role-pill-btn pill-station" data-target-view="view-station-board" id="btnRoleStation" style="display:none;">
+                            <i class="fa-solid fa-tv"></i>
+                            <span>Station Board</span>
+                        </button>
+                        <button class="role-pill-btn pill-control" data-target-view="view-control-room" id="btnRoleControl" style="display:none;">
+                            <i class="fa-solid fa-tower-observation"></i>
+                            <span>Control Room</span>
+                        </button>
+                    </nav>
+
+                    <div class="staff-auth-actions">
+                        <div class="header-role-pill" id="headerUserRoleBadge" style="display:none;">Passenger</div>
+                        <a href="/staff/login" class="btn-staff-portal" id="btnOpenStaffLogin" title="Staff Portal Authentication">
+                            <i class="fa-solid fa-user-shield"></i>
+                            <span>Staff Portal</span>
+                        </a>
+                        <button class="btn-logout-staff" id="btnLogoutStaff" style="display:none;" title="Logout Staff Session">
+                            <i class="fa-solid fa-right-from-bracket"></i>
+                            <span>Logout</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ============================================================
+             MAIN VIEWPORT ROUTER FOR THE THREE INTERFACES
+             ============================================================ -->
+        <main class="portal-views-viewport">
+
+            <!-- ============================================================
+                 INTERFACE 1: PASSENGER APP
+                 ============================================================ -->
+            <div id="view-passenger" class="portal-view-container active-view">
+                
+                <div class="phone-frame-wrapper">
+                    <div class="phone-screen-canvas">
+                        
+                        <!-- Top Mini Status Bar -->
+                        <div class="phone-status-banner">
+                            <div class="phone-live-indicator">
+                                <span class="live-dot-pulse"></span>
+                                <span id="simStatusText">Live tracking active</span>
+                            </div>
+                            <span class="phone-speed-pill" id="simSpeedIndicator">114 km/h • GPS</span>
+                        </div>
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 1: PASSENGER SEARCH HOME
+                             ---------------------------------------------------- -->
+                        <section id="screen-home" class="app-screen active-screen">
+                            <div class="home-hero-card">
+                                <h1 class="home-hero-title">Track Your Train</h1>
+                                <p class="home-hero-sub">Get real-time dynamic arrival predictions powered by multiple factors.</p>
+                            </div>
+
+                            <div class="search-box-card">
+                                <form id="passengerSearchForm">
+                                    <div class="search-input-wrap">
+                                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                                        <input 
+                                            type="text" 
+                                            id="trainSearchInput" 
+                                            class="search-input" 
+                                            placeholder="Enter train no., name, or route (e.g. 12951, August Kranti)" 
+                                            autocomplete="off"
+                                            value="12951"
+                                        >
+                                        <button type="button" id="btnSearchClear" class="btn-clear" title="Clear input">
+                                            <i class="fa-solid fa-xmark"></i>
+                                        </button>
+                                        <div id="searchSuggestionsBox" class="search-suggestions-dropdown" style="display:none;">
+                                            <div class="search-suggestions-header">Search Results</div>
+                                            <div id="searchSuggestionsList" class="search-suggestions-list"></div>
+                                        </div>
+                                    </div>
+
+                                    <div id="searchErrorMsg" class="search-error-box"></div>
+
+                                    <button type="submit" id="btnSearchSubmit" class="btn-search-main">
+                                        <span id="searchSpinner" style="display:none;"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                        <span>Search Train</span>
+                                        <i class="fa-solid fa-arrow-right"></i>
+                                    </button>
+                                </form>
+
+                                <div class="popular-trains-section">
+                                    <div class="popular-lbl">Popular Trains:</div>
+                                    <div class="popular-chips">
+                                        <button class="train-chip active" data-train="12951">12951 NDLS Rajdhani</button>
+                                        <button class="train-chip" data-train="12860">12860 Gitanjali Exp</button>
+                                        <button class="train-chip" data-train="22436">22436 Vande Bharat</button>
+                                        <button class="train-chip" data-train="12002">12002 Bhopal Shatabdi</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Searches List -->
+                            <div class="recent-searches-box">
+                                <div class="recent-header">
+                                    <span><i class="fa-solid fa-clock-rotate-left"></i> Recent Searches</span>
+                                    <button id="btnClearRecentSearches" class="btn-link">Clear</button>
+                                </div>
+                                <div id="recentSearchesList" class="recent-list">
+                                    <!-- Populated dynamically via JS -->
+                                </div>
+                            </div>
+                        </section>
+
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 2: TRAIN DETAILS & DYNAMIC ETA (Main Screen)
+                             ---------------------------------------------------- -->
+                        <section id="screen-details" class="app-screen">
+                            
+                            <div class="passenger-details-layout">
+                                <!-- LEFT COLUMN: Train Summary + Hero Dynamic ETA + Factors -->
+                                <div class="passenger-col-left">
+                                    
+                                    <!-- 1. Compact Train Card -->
+                                    <div class="train-hero-card train-compact-card">
+                                        <div class="train-hero-row">
+                                            <div class="train-num-name">
+                                                <span class="train-no" id="detailsTrainNo">12951</span>
+                                                <span class="train-route" id="detailsRouteSubtitle">Mumbai Central (MMCT) → New Delhi (NDLS)</span>
+                                            </div>
+                                            <div class="train-status-badge" id="detailsRunningStatusPill">
+                                                <span class="status-badge-dot"></span>
+                                                <span id="detailsRunningStatusText">Running 14 min late</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 2. Main Hero Dynamic ETA Card (The Main Visual Focus) -->
+                                    <div class="main-eta-card">
+                                        <div class="eta-header-lbl">EXPECTED ARRIVAL</div>
+                                        <div class="eta-time-row">
+                                            <div class="eta-big-time" id="detailsPredictedETA">--:--</div>
+                                            <div class="eta-delay-pill" id="detailsDelayTag">--</div>
+                                        </div>
+                                        <div class="eta-scheduled-line" id="detailsScheduledETA">--</div>
+                                        
+                                        <div class="eta-meta-footer">
+                                            <div class="eta-confidence-tag" id="detailsConfidenceText">
+                                                <i class="fa-solid fa-shield-check"></i>
+                                                <span>--</span>
+                                            </div>
+                                            <div class="eta-updated-tag" id="detailsLastUpdatedTime">
+                                                <i class="fa-regular fa-clock"></i> Updated just now
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. "Why is ETA changing?" (Expandable Accordion) -->
+                                    <div class="factors-accordion-card">
+                                        <div class="factors-accordion-header" id="btnToggleWhyEta">
+                                            <div class="factors-header-left">
+                                                <i class="fa-solid fa-sliders"></i>
+                                                <div>
+                                                    <div class="factors-title">Why is ETA changing?</div>
+                                                    <div class="factors-count-text" id="detailsFactorsCountBadge">3 factors currently affecting ETA</div>
+                                                </div>
+                                            </div>
+                                            <i class="fa-solid fa-chevron-down factors-chevron" id="detailsFactorsChevron"></i>
+                                        </div>
+
+                                        <!-- Collapsible Body -->
+                                        <div class="factors-accordion-body" id="detailsWhyEtaBody" style="display:none;">
+                                            <div id="detailsActiveFactorsList" class="factors-list">
+                                                <!-- Populated dynamically with active factor cards -->
+                                            </div>
+
+                                            <button type="button" class="btn-toggle-all-factors" id="btnToggleAllFactors">
+                                                View all 12 factors
+                                            </button>
+
+                                            <!-- All 12 Factors Container -->
+                                            <div id="detailsAllTwelveFactorsContainer" class="all-factors-drawer" style="display:none;">
+                                                <!-- Populated dynamically with all 12 factors -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4. Trains Between Stations (Compact Overview Card) -->
+                                    <div class="trains-between-overview-card">
+                                        <div class="between-card-header">
+                                            <div class="between-header-left">
+                                                <div class="between-icon-badge">
+                                                    <i class="fa-solid fa-arrows-left-right-to-line"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="between-card-title">Trains Between Stations</div>
+                                                    <div class="between-card-sub">Find all available direct trains & live running status</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <form id="betweenStationsOverviewForm" class="between-form-compact">
+                                            <div class="between-inputs-grid">
+                                                <div class="between-field-wrap">
+                                                    <label for="fromStationOverviewInput" class="between-field-label">From Station</label>
+                                                    <div class="between-input-box">
+                                                        <i class="fa-solid fa-location-dot between-field-icon text-green"></i>
+                                                        <input type="text" id="fromStationOverviewInput" class="between-text-input" placeholder="e.g. MMCT / Mumbai Central" list="stationSuggestionsList" value="MMCT" autocomplete="off" required>
+                                                    </div>
+                                                </div>
+                                                <button type="button" id="btnSwapOverviewStations" class="btn-swap-stations" title="Swap stations">
+                                                    <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                                                </button>
+                                                <div class="between-field-wrap">
+                                                    <label for="toStationOverviewInput" class="between-field-label">To Station</label>
+                                                    <div class="between-input-box">
+                                                        <i class="fa-solid fa-flag-checkered between-field-icon text-red"></i>
+                                                        <input type="text" id="toStationOverviewInput" class="between-text-input" placeholder="e.g. NDLS / New Delhi" list="stationSuggestionsList" value="NDLS" autocomplete="off" required>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <datalist id="stationSuggestionsList">
+                                                <option value="MMCT">Mumbai Central (MMCT)</option>
+                                                <option value="NDLS">New Delhi (NDLS)</option>
+                                                <option value="CSMT">Mumbai CSMT (CSMT)</option>
+                                                <option value="ST">Surat (ST)</option>
+                                                <option value="BRC">Vadodara Jn (BRC)</option>
+                                                <option value="KOTA">Kota Jn (KOTA)</option>
+                                                <option value="RTM">Ratlam Jn (RTM)</option>
+                                                <option value="BVI">Borivali (BVI)</option>
+                                                <option value="NZM">Hazrat Nizamuddin (NZM)</option>
+                                                <option value="HWH">Howrah Jn (HWH)</option>
+                                                <option value="BSB">Varanasi Jn (BSB)</option>
+                                                <option value="PUNE">Pune Jn (PUNE)</option>
+                                                <option value="RKMP">Rani Kamlapati (RKMP)</option>
+                                                <option value="ADI">Ahmedabad Jn (ADI)</option>
+                                                <option value="MAS">Chennai Central (MAS)</option>
+                                                <option value="SBC">KSR Bengaluru (SBC)</option>
+                                                <option value="CNB">Kanpur Central (CNB)</option>
+                                                <option value="PNBE">Patna Jn (PNBE)</option>
+                                            </datalist>
+                                            <div class="between-quick-chips">
+                                                <span class="quick-chip-lbl">Popular Routes:</span>
+                                                <button type="button" class="btn-between-route-chip" data-from="MMCT" data-to="NDLS">MMCT → NDLS</button>
+                                                <button type="button" class="btn-between-route-chip" data-from="MMCT" data-to="ST">MMCT → ST</button>
+                                                <button type="button" class="btn-between-route-chip" data-from="MMCT" data-to="BRC">MMCT → BRC</button>
+                                                <button type="button" class="btn-between-route-chip" data-from="NDLS" data-to="KOTA">NDLS → KOTA</button>
+                                            </div>
+                                            <div id="betweenOverviewError" class="between-error-box" style="display:none;"></div>
+                                            <button type="submit" id="btnSearchBetweenStations" class="btn-search-between-main">
+                                                <span id="betweenSearchSpinner" style="display:none;"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                                                <i class="fa-solid fa-magnifying-glass"></i>
+                                                <span>Search Available Trains</span>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT COLUMN: Live Now + Route Progress + Upcoming + Alerts + Actions -->
+                                <div class="passenger-col-right">
+                                    
+                                    <!-- 4. Live Status (3 Compact Columns) -->
+                                    <div class="live-status-block">
+                                        <div class="status-block-header">
+                                            <i class="fa-solid fa-satellite-dish"></i>
+                                            <span>LIVE NOW</span>
+                                        </div>
+                                        <div class="status-tri-row status-tri-grid">
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-location-dot"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="detailsCurrentLocation">--</div>
+                                                    <div class="tri-subtitle">Currently passing</div>
+                                                </div>
+                                            </div>
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="detailsCurrentSpeed">-- km/h</div>
+                                                    <div class="tri-subtitle">Current speed</div>
+                                                </div>
+                                            </div>
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-train"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="detailsNextStationName">--</div>
+                                                    <div class="tri-subtitle" id="detailsNextStationETA">--</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 5. Route Progress with Intermediate Stations Timeline -->
+                                    <div class="route-progress-card journey-progress-card">
+                                        <div class="route-progress-header">
+                                            <div class="route-header-title-wrap">
+                                                <i class="fa-solid fa-route"></i>
+                                                <span class="route-header-title">Route Progress</span>
+                                            </div>
+                                            <span class="progress-pct-bold" id="detailsProgressPct">--% completed</span>
+                                        </div>
+
+                                        <div class="route-stn-names">
+                                            <div class="route-endpoint-box origin">
+                                                <span class="stn-endpoint-sub">Origin (Departed)</span>
+                                                <span class="stn-origin" id="detailsSourceCode">--</span>
+                                            </div>
+                                            <div class="route-endpoint-box dest">
+                                                <span class="stn-endpoint-sub">Destination</span>
+                                                <span class="stn-dest" id="detailsDestCode">--</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Dynamic Intermediate Stations Timeline Container -->
+                                        <div id="routeTimelineTrackContainer" class="route-timeline-track-container">
+                                            <!-- Populated dynamically with intermediate stations timeline -->
+                                        </div>
+
+                                        <!-- Backward compatible hook for tests -->
+                                        <div id="detailsProgressFill" style="display:none;"></div>
+                                        <div id="detailsProgressMarker" style="display:none;"></div>
+
+                                        <div class="route-footer-meta">
+                                            <div class="route-distance-meta" id="detailsDistanceMeta">
+                                                -- km covered · -- km remaining
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 6. Upcoming Stations (Next 3 Stops) -->
+                                    <div class="upcoming-preview-card">
+                                        <div class="preview-header">
+                                            <span class="preview-title"><i class="fa-solid fa-timeline"></i> Upcoming stations</span>
+                                            <button class="btn-link-action" data-target-screen="screen-route">View full route →</button>
+                                        </div>
+                                        <div id="nextStationsPreviewList" class="preview-stations-list">
+                                            <!-- Populated dynamically with next 3 stops -->
+                                        </div>
+                                    </div>
+
+                                    <!-- 7. Smart Alerts Section -->
+                                    <div id="detailsSmartAlertContainer" class="smart-alert-card">
+                                        <div class="alert-icon-wrap"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                        <div class="alert-text-wrap">
+                                            <div class="alert-headline" id="detailsAlertTitle">Delay Alert (+14 min)</div>
+                                            <div class="alert-msg" id="detailsAlertMessage">Running behind schedule due to congestion and speed restrictions.</div>
+                                        </div>
+                                        <span class="alert-time" id="detailsAlertTime">5m ago</span>
+                                    </div>
+
+                                    <!-- 8. Quick Actions Bar -->
+                                    <div class="quick-nav-actions">
+                                        <button class="btn-action-pill" data-target-screen="screen-map">
+                                            <i class="fa-solid fa-map-location-dot"></i>
+                                            <span>Open Live Route Map</span>
+                                        </button>
+                                        <button class="btn-action-pill" data-target-screen="screen-route">
+                                            <i class="fa-solid fa-route"></i>
+                                            <span>Full Route Timetable</span>
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>
+
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 3: LIVE ROUTE MAP SCREEN (PURE TRAIN TRACKING)
+                             ---------------------------------------------------- -->
+                        <section id="screen-map" class="app-screen">
+                            <div class="passenger-details-layout passenger-map-layout">
+                                
+                                <!-- LEFT COLUMN: Map Header + Train Summary + Main Live Map Card + Live 3-Tile Telemetry -->
+                                <div class="passenger-col-left">
+                                    
+                                    <!-- 1. Screen Header Card -->
+                                    <div class="screen-header-card">
+                                        <div class="screen-header-left">
+                                            <div class="screen-badge-icon">
+                                                <i class="fa-solid fa-map-location-dot"></i>
+                                            </div>
+                                            <div>
+                                                <h2 class="screen-main-title">Live Route Map</h2>
+                                                <span class="screen-sub-title">Real-time GPS Tracking, Train Position & Corridor Navigation</span>
+                                            </div>
+                                        </div>
+                                        <button class="btn-back-action" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-arrow-left"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- 2. Train Summary Card -->
+                                    <div class="train-hero-card train-compact-card">
+                                        <div class="train-hero-row">
+                                            <div class="train-num-name">
+                                                <span class="train-no" id="mapScreenTrainNo">12951</span>
+                                                <span class="train-route" id="mapScreenRouteSubtitle">Mumbai Central (MMCT) → New Delhi (NDLS)</span>
+                                            </div>
+                                            <div class="train-status-badge" id="mapScreenRunningStatusPill">
+                                                <span class="status-badge-dot"></span>
+                                                <span id="mapScreenRunningStatusText">Running 14 min late</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Main Live Route Map Card -->
+                                    <div class="map-view-card" id="passengerMapContainerCard">
+                                        <div class="map-card-toolbar">
+                                            <div class="map-toolbar-left">
+                                                <span class="map-live-dot-pulse"></span>
+                                                <span class="map-toolbar-title">Railway Corridor Track</span>
+                                                <span class="map-speed-chip" id="mapToolbarSpeed">118 km/h • GPS</span>
+                                            </div>
+
+                                            <div class="map-toolbar-actions">
+                                                <button class="btn-map-tool" id="btnMapZoomIn" title="Zoom In">
+                                                    <i class="fa-solid fa-plus"></i>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnMapZoomOut" title="Zoom Out">
+                                                    <i class="fa-solid fa-minus"></i>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnCenterTrain" title="Center on Live Train">
+                                                    <i class="fa-solid fa-crosshairs"></i> <span>Center</span>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnFitRoute" title="Fit Full Route">
+                                                    <i class="fa-solid fa-route"></i> <span>Fit Route</span>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnMapFullscreen" title="Expand Map">
+                                                    <i class="fa-solid fa-expand"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Leaflet Canvas Container -->
+                                        <div class="map-render-canvas" id="liveTrackingMap"></div>
+
+                                        <!-- Map Bottom HUD Bar -->
+                                        <div class="map-bottom-hud">
+                                            <div class="map-hud-left">
+                                                <span class="map-train-badge" id="mapTrainNumber">--</span>
+                                                <span class="map-next-stn" id="mapNextStationText">Next: --</span>
+                                            </div>
+                                            <span class="map-eta-badge" id="mapNextStationETA">--</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 4. Live Status (3 Compact Telemetry Cards) -->
+                                    <div class="live-status-block">
+                                        <div class="status-block-header">
+                                            <i class="fa-solid fa-satellite-dish"></i>
+                                            <span>LIVE TELEMETRY</span>
+                                        </div>
+                                        <div class="status-tri-row status-tri-grid">
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-location-dot"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="mapCurrentLocation">--</div>
+                                                    <div class="tri-subtitle">Currently passing</div>
+                                                </div>
+                                            </div>
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="mapCurrentSpeed">-- km/h</div>
+                                                    <div class="tri-subtitle">Current speed</div>
+                                                </div>
+                                            </div>
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-train"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="mapNextStationName">--</div>
+                                                    <div class="tri-subtitle" id="mapNextStationDetailETA">--</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- RIGHT COLUMN: Route Progress + Why is ETA Changing + Upcoming Stations -->
+                                <div class="passenger-col-right">
+                                    
+                                    <!-- 5. Route Progress with Intermediate Stations Timeline -->
+                                    <div class="route-progress-card journey-progress-card">
+                                        <div class="route-progress-header">
+                                            <div class="route-header-title-wrap">
+                                                <i class="fa-solid fa-route"></i>
+                                                <span class="route-header-title">Route Progress & Stations</span>
+                                            </div>
+                                            <span class="progress-pct-bold" id="mapProgressPct">--% completed</span>
+                                        </div>
+
+                                        <div class="route-stn-names">
+                                            <div class="route-endpoint-box origin">
+                                                <span class="stn-endpoint-sub">Origin (Departed)</span>
+                                                <span class="stn-origin" id="mapSourceCode">--</span>
+                                            </div>
+                                            <div class="route-endpoint-box dest">
+                                                <span class="stn-endpoint-sub">Destination</span>
+                                                <span class="stn-dest" id="mapDestCode">--</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Dynamic Intermediate Stations Timeline Container -->
+                                        <div id="mapRouteTimelineTrackContainer" class="route-timeline-track-container">
+                                            <!-- Populated dynamically with intermediate stations timeline -->
+                                        </div>
+
+                                        <div class="route-footer-meta">
+                                            <div class="route-distance-meta" id="mapDistanceMeta">
+                                                -- km covered · -- km remaining
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 6. "Why is ETA changing?" (Expandable Accordion) -->
+                                    <div class="factors-accordion-card">
+                                        <div class="factors-accordion-header" id="btnToggleWhyEtaMap">
+                                            <div class="factors-header-left">
+                                                <i class="fa-solid fa-sliders"></i>
+                                                <div>
+                                                    <div class="factors-title">Why is ETA changing?</div>
+                                                    <div class="factors-count-text" id="mapFactorsCountBadge">3 factors currently affecting ETA</div>
+                                                </div>
+                                            </div>
+                                            <i class="fa-solid fa-chevron-down factors-chevron" id="mapFactorsChevron"></i>
+                                        </div>
+
+                                        <!-- Collapsible Body -->
+                                        <div class="factors-accordion-body" id="mapWhyEtaBody" style="display:none;">
+                                            <div id="mapActiveFactorsList" class="factors-list">
+                                                <!-- Populated dynamically with active factor cards -->
+                                            </div>
+
+                                            <button type="button" class="btn-toggle-all-factors" id="btnToggleAllFactorsMap">
+                                                View all 12 factors
+                                            </button>
+
+                                            <!-- All 12 Factors Container -->
+                                            <div id="mapAllTwelveFactorsContainer" class="all-factors-drawer" style="display:none;">
+                                                <!-- Populated dynamically with all 12 factors -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 7. Upcoming Stations Preview -->
+                                    <div class="upcoming-preview-card">
+                                        <div class="preview-header">
+                                            <span class="preview-title"><i class="fa-solid fa-timeline"></i> Upcoming Stations</span>
+                                            <button class="btn-link-action" data-target-screen="screen-route">Full route →</button>
+                                        </div>
+                                        <div id="mapNextStationsPreviewList" class="preview-stations-list">
+                                            <!-- Populated dynamically with next stops -->
+                                        </div>
+                                    </div>
+
+                                    <!-- 8. Quick Actions Row -->
+                                    <div class="quick-nav-actions">
+                                        <button class="btn-action-pill" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-house"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                        <button class="btn-action-pill" data-target-screen="screen-route">
+                                            <i class="fa-solid fa-route"></i>
+                                            <span>Full Route Timetable</span>
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>
+
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 4: FULL ROUTE & TIMETABLE SCREEN
+                             ---------------------------------------------------- -->
+                        <section id="screen-route" class="app-screen">
+                            <div class="passenger-details-layout passenger-route-layout">
+                                
+                                <!-- LEFT COLUMN: Route Header + Train Summary + Complete Vertical Station Timeline + Timetable Table -->
+                                <div class="passenger-col-left">
+                                    
+                                    <!-- 1. Screen Header Card -->
+                                    <div class="screen-header-card">
+                                        <div class="screen-header-left">
+                                            <div class="screen-badge-icon">
+                                                <i class="fa-solid fa-route"></i>
+                                            </div>
+                                            <div>
+                                                <h2 class="screen-main-title">Route Timetable & Station Timeline</h2>
+                                                <span class="screen-sub-title">Scheduled vs Dynamic Arrival Times & Intermediate Stops</span>
+                                            </div>
+                                        </div>
+                                        <button class="btn-back-action" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-arrow-left"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- 2. Train Summary Card -->
+                                    <div class="train-hero-card train-compact-card">
+                                        <div class="train-hero-row">
+                                            <div class="train-num-name">
+                                                <span class="train-no" id="routeScreenTrainNo">12951</span>
+                                                <span class="train-route" id="routeScreenRouteSubtitle">Mumbai Central (MMCT) → New Delhi (NDLS)</span>
+                                            </div>
+                                            <div class="train-status-badge" id="routeScreenRunningStatusPill">
+                                                <span class="status-badge-dot"></span>
+                                                <span id="routeScreenRunningStatusText">Running 14 min late</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Complete Vertical Station Timeline Card -->
+                                    <div class="route-vertical-timeline-card" id="routeVerticalTimelineCard">
+                                        <div class="timeline-card-header">
+                                            <div class="timeline-header-title">
+                                                <i class="fa-solid fa-timeline"></i>
+                                                <span>Complete Station Route Timeline</span>
+                                            </div>
+                                            <span class="timeline-live-tag"><span class="live-dot-pulse"></span> Live GPS Active</span>
+                                        </div>
+
+                                        <!-- Dynamic Vertical Stations Timeline Container -->
+                                        <div id="routeScreenTimelineContainer" class="route-v-timeline-container">
+                                            <!-- Dynamically populated via JS with intermediate stations and pulsing live train position -->
+                                        </div>
+
+                                        <!-- Backward compatible containers for existing test hooks -->
+                                        <div id="fullRouteStationsList" style="display:none;"></div>
+                                        <div id="upcomingStationsList" style="display:none;"></div>
+                                    </div>
+
+                                    <!-- 4. Detailed Route Timetable Comparison Table Card -->
+                                    <div class="route-timetable-table-card">
+                                        <div class="timetable-table-header">
+                                            <div class="timetable-table-title">
+                                                <i class="fa-solid fa-table-list"></i>
+                                                <span>Station Timetable & Schedule Comparison</span>
+                                            </div>
+                                            <span class="table-legend-tag">Real-time Intelligence</span>
+                                        </div>
+                                        <div class="route-table-scroll">
+                                            <table class="route-timetable-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Station</th>
+                                                        <th>Scheduled</th>
+                                                        <th>Dynamic ETA</th>
+                                                        <th>Delay</th>
+                                                        <th>Platform</th>
+                                                        <th>Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="routeTimetableTableBody">
+                                                    <!-- Dynamically populated via JS -->
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- RIGHT COLUMN: Dynamic ETA + Live Telemetry + Route Progress + 12 Factors + Alerts -->
+                                <div class="passenger-col-right">
+                                    
+                                    <!-- 5. Main Hero Dynamic ETA Card -->
+                                    <div class="main-eta-card">
+                                        <div class="eta-header-lbl">EXPECTED DESTINATION ARRIVAL</div>
+                                        <div class="eta-time-row">
+                                            <div class="eta-big-time" id="routePredictedETA">--:--</div>
+                                            <div class="eta-delay-pill" id="routeDelayTag">--</div>
+                                        </div>
+                                        <div class="eta-scheduled-line" id="routeScheduledETA">--</div>
+                                        
+                                        <div class="eta-meta-footer">
+                                            <div class="eta-confidence-tag" id="routeConfidenceText">
+                                                <i class="fa-solid fa-shield-check"></i>
+                                                <span>--</span>
+                                            </div>
+                                            <div class="eta-updated-tag" id="routeLastUpdatedTime">
+                                                <i class="fa-regular fa-clock"></i> Updated just now
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 6. Live Status (3 Compact Telemetry Tiles) -->
+                                    <div class="live-status-block">
+                                        <div class="status-block-header">
+                                            <i class="fa-solid fa-satellite-dish"></i>
+                                            <span>LIVE TELEMETRY</span>
+                                        </div>
+                                        <div class="status-tri-row status-tri-grid">
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-location-dot"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="routeCurrentLocation">--</div>
+                                                    <div class="tri-subtitle">Currently passing</div>
+                                                </div>
+                                            </div>
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-gauge-high"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="routeCurrentSpeed">-- km/h</div>
+                                                    <div class="tri-subtitle">Current speed</div>
+                                                </div>
+                                            </div>
+                                            <div class="tri-card">
+                                                <div class="tri-icon"><i class="fa-solid fa-train"></i></div>
+                                                <div class="tri-body">
+                                                    <div class="tri-title" id="routeNextStationName">--</div>
+                                                    <div class="tri-subtitle" id="routeNextStationETA">--</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 7. Route Progress Card with Intermediate Stations Timeline -->
+                                    <div class="route-progress-card journey-progress-card">
+                                        <div class="route-progress-header">
+                                            <div class="route-header-title-wrap">
+                                                <i class="fa-solid fa-route"></i>
+                                                <span class="route-header-title">Route Progress</span>
+                                            </div>
+                                            <span class="progress-pct-bold" id="routeScreenProgressPct">--% completed</span>
+                                        </div>
+
+                                        <div class="route-stn-names">
+                                            <div class="route-endpoint-box origin">
+                                                <span class="stn-endpoint-sub">Origin (Departed)</span>
+                                                <span class="stn-origin" id="routeScreenSourceCode">--</span>
+                                            </div>
+                                            <div class="route-endpoint-box dest">
+                                                <span class="stn-endpoint-sub">Destination</span>
+                                                <span class="stn-dest" id="routeScreenDestCode">--</span>
+                                            </div>
+                                        </div>
+
+                                        <!-- Dynamic Intermediate Stations Timeline Container -->
+                                        <div id="routeScreenProgressTrackContainer" class="route-timeline-track-container">
+                                            <!-- Populated dynamically with intermediate stations timeline -->
+                                        </div>
+
+                                        <div class="route-footer-meta">
+                                            <div class="route-distance-meta" id="routeScreenDistanceMeta">
+                                                -- km covered · -- km remaining
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 8. "Why is ETA changing?" (Expandable Accordion) -->
+                                    <div class="factors-accordion-card">
+                                        <div class="factors-accordion-header" id="btnToggleWhyEtaRoute">
+                                            <div class="factors-header-left">
+                                                <i class="fa-solid fa-sliders"></i>
+                                                <div>
+                                                    <div class="factors-title">Why is ETA changing?</div>
+                                                    <div class="factors-count-text" id="routeFactorsCountBadge">3 factors currently affecting ETA</div>
+                                                </div>
+                                            </div>
+                                            <i class="fa-solid fa-chevron-down factors-chevron" id="routeFactorsChevron"></i>
+                                        </div>
+
+                                        <!-- Collapsible Body -->
+                                        <div class="factors-accordion-body" id="routeWhyEtaBody" style="display:none;">
+                                            <div id="routeActiveFactorsList" class="factors-list">
+                                                <!-- Populated dynamically with active factor cards -->
+                                            </div>
+
+                                            <button type="button" class="btn-toggle-all-factors" id="btnToggleAllFactorsRoute">
+                                                View all 12 factors
+                                            </button>
+
+                                            <!-- All 12 Factors Container -->
+                                            <div id="routeAllTwelveFactorsContainer" class="all-factors-drawer" style="display:none;">
+                                                <!-- Populated dynamically with all 12 factors -->
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 9. Smart Conditional Alert -->
+                                    <div id="routeSmartAlertContainer" class="smart-alert-card" style="display:none;">
+                                        <div class="alert-icon-wrap"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                                        <div class="alert-text-wrap">
+                                            <div class="alert-headline" id="routeAlertTitle">Delay Alert (+14 min)</div>
+                                            <div class="alert-msg" id="routeAlertMessage">Running behind schedule due to congestion and speed restrictions.</div>
+                                        </div>
+                                        <span class="alert-time" id="routeAlertTime">5m ago</span>
+                                    </div>
+
+                                    <!-- 10. Quick Actions Row -->
+                                    <div class="quick-nav-actions">
+                                        <button class="btn-action-pill" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-house"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                        <button class="btn-action-pill" data-target-screen="screen-map">
+                                            <i class="fa-solid fa-map-location-dot"></i>
+                                            <span>Live Route Map</span>
+                                        </button>
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>
+
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 5: WEATHER & RADAR MAP SCREEN
+                             ---------------------------------------------------- -->
+                        <section id="screen-weather" class="app-screen">
+                            <div class="passenger-details-layout passenger-weather-layout">
+                                
+                                <!-- LEFT COLUMN: Weather Header + Main Weather Map Card + Real Open-Meteo Weather Telemetry -->
+                                <div class="passenger-col-left">
+                                    
+                                    <!-- 1. Screen Header Card -->
+                                    <div class="screen-header-card">
+                                        <div class="screen-header-left">
+                                            <div class="screen-badge-icon">
+                                                <i class="fa-solid fa-cloud-sun-rain"></i>
+                                            </div>
+                                            <div>
+                                                <h2 class="screen-main-title">Live Weather & Radar</h2>
+                                                <span class="screen-sub-title">Real-time RainViewer Radar, Cloud Overlays & Open-Meteo Telemetry</span>
+                                            </div>
+                                        </div>
+                                        <button class="btn-back-action" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-arrow-left"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- 2. Train Summary Card (Synced with Selected Train) -->
+                                    <div class="train-hero-card train-compact-card">
+                                        <div class="train-hero-row">
+                                            <div class="train-num-name">
+                                                <span class="train-no" id="weatherScreenTrainNo">12951</span>
+                                                <span class="train-route" id="weatherScreenRouteSubtitle">Mumbai Central (MMCT) → New Delhi (NDLS)</span>
+                                            </div>
+                                            <div class="train-status-badge" id="weatherScreenRunningStatusPill">
+                                                <span class="status-badge-dot"></span>
+                                                <span id="weatherScreenRunningStatusText">Route Radar Active</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Main Weather & Radar Map Card -->
+                                    <div class="map-view-card" id="passengerWeatherContainerCard">
+                                        <div class="map-card-toolbar">
+                                            <div class="map-toolbar-left">
+                                                <span class="map-live-dot-pulse"></span>
+                                                <span class="map-toolbar-title">Route Corridor Weather Radar</span>
+                                                <span class="map-speed-chip" id="weatherToolbarSpeed">118 km/h • GPS</span>
+                                            </div>
+
+                                            <!-- Weather Map Layer Selector Controls -->
+                                            <div class="map-layer-controls">
+                                                <button type="button" class="btn-weather-layer active" data-layer="rain" id="btnWeatherLayerRain" title="Real-time Precipitation Radar">
+                                                    <i class="fa-solid fa-cloud-rain"></i> <span>Rain</span>
+                                                </button>
+                                                <button type="button" class="btn-weather-layer" data-layer="weather" id="btnWeatherLayerComposite" title="Live Weather Composite">
+                                                    <i class="fa-solid fa-cloud-sun-rain"></i> <span>Composite</span>
+                                                </button>
+                                                <button type="button" class="btn-weather-layer" data-layer="clouds" id="btnWeatherLayerClouds" title="Satellite Cloud Cover">
+                                                    <i class="fa-solid fa-cloud"></i> <span>Clouds</span>
+                                                </button>
+                                                <button type="button" class="btn-weather-layer" data-layer="hybrid" id="btnWeatherLayerHybrid" title="Satellite Base Map">
+                                                    <i class="fa-solid fa-layer-group"></i> <span>Hybrid</span>
+                                                </button>
+                                            </div>
+
+                                            <div class="map-toolbar-actions">
+                                                <button class="btn-map-tool" id="btnWeatherZoomIn" title="Zoom In">
+                                                    <i class="fa-solid fa-plus"></i>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnWeatherZoomOut" title="Zoom Out">
+                                                    <i class="fa-solid fa-minus"></i>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnWeatherResetView" title="Reset View">
+                                                    <i class="fa-solid fa-expand"></i> <span>Reset</span>
+                                                </button>
+                                                <button class="btn-map-tool" id="btnWeatherFullscreen" title="Expand Fullscreen">
+                                                    <i class="fa-solid fa-up-right-and-down-left-from-center"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Leaflet Weather Canvas Container -->
+                                        <div class="map-render-canvas" id="weatherTrackingMap">
+                                            <!-- Weather Legend Overlay -->
+                                            <div class="map-weather-legend is-visible" id="mapWeatherLegend">
+                                                <div class="weather-legend-header">
+                                                    <i class="fa-solid fa-cloud-sun-rain"></i>
+                                                    <span id="weatherLegendTitle">Precipitation Radar</span>
+                                                </div>
+                                                <div class="weather-legend-scale">
+                                                    <div class="legend-scale-bar"></div>
+                                                    <div class="legend-scale-labels">
+                                                        <span>Light</span>
+                                                        <span>Moderate</span>
+                                                        <span>Heavy</span>
+                                                        <span>Severe</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Radar Animation Player HUD (Play/Pause + Scrubber) -->
+                                            <div class="radar-player-hud is-visible" id="radarPlayerHud">
+                                                <button type="button" class="radar-play-btn" id="btnRadarPlayPause" title="Play/Pause Radar Animation">
+                                                    <i class="fa-solid fa-play" id="radarPlayIcon"></i>
+                                                </button>
+                                                <div class="radar-timeline-wrap">
+                                                    <div class="radar-timeline-top">
+                                                        <span class="radar-badge-live"><span class="radar-live-dot"></span> REAL RADAR</span>
+                                                        <span class="radar-frame-time" id="radarFrameTimeLabel">Loading live radar...</span>
+                                                    </div>
+                                                    <input type="range" class="radar-scrubber-slider" id="radarTimeScrubber" min="0" max="12" value="12" step="1" title="Scrub radar time frames">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Map Bottom HUD Bar -->
+                                        <div class="map-bottom-hud">
+                                            <div class="map-hud-left">
+                                                <span class="map-train-badge" id="weatherTrainNumber" style="background:#0284C7;">--</span>
+                                                <span class="map-next-stn" id="weatherNextStationText">Next: --</span>
+                                            </div>
+                                            <span class="map-eta-badge" id="weatherNextStationETA">--</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Real Weather Telemetry Panel (Open-Meteo Real Data) -->
+                                    <div class="weather-telemetry-card" id="mapWeatherCard">
+                                        <div class="weather-card-header">
+                                            <div class="weather-header-left">
+                                                <div class="weather-icon-badge" id="weatherConditionIcon">
+                                                    <i class="fa-solid fa-cloud-sun"></i>
+                                                </div>
+                                                <div>
+                                                    <div class="weather-header-title">Live Weather & Track Environment</div>
+                                                    <div class="weather-location-sub" id="weatherLocationName">Fetching weather for railway corridor...</div>
+                                                </div>
+                                            </div>
+                                            <div class="weather-status-tag" id="weatherStatusTag">
+                                                <span class="live-dot-pulse"></span> Open-Meteo Real Data
+                                            </div>
+                                        </div>
+
+                                        <div class="weather-grid" id="weatherGridContent">
+                                            <div class="weather-metric-tile">
+                                                <div class="weather-metric-icon"><i class="fa-solid fa-temperature-half"></i></div>
+                                                <div class="weather-metric-body">
+                                                    <div class="weather-metric-val" id="weatherTemp">-- °C</div>
+                                                    <div class="weather-metric-lbl">Temperature</div>
+                                                </div>
+                                            </div>
+                                            <div class="weather-metric-tile">
+                                                <div class="weather-metric-icon"><i class="fa-solid fa-cloud"></i></div>
+                                                <div class="weather-metric-body">
+                                                    <div class="weather-metric-val" id="weatherCondition">--</div>
+                                                    <div class="weather-metric-lbl">Condition</div>
+                                                </div>
+                                            </div>
+                                            <div class="weather-metric-tile">
+                                                <div class="weather-metric-icon"><i class="fa-solid fa-cloud-rain"></i></div>
+                                                <div class="weather-metric-body">
+                                                    <div class="weather-metric-val" id="weatherRain">-- mm</div>
+                                                    <div class="weather-metric-lbl">Rain / Precip</div>
+                                                </div>
+                                            </div>
+                                            <div class="weather-metric-tile">
+                                                <div class="weather-metric-icon"><i class="fa-solid fa-cloud-meatball"></i></div>
+                                                <div class="weather-metric-body">
+                                                    <div class="weather-metric-val" id="weatherClouds">-- %</div>
+                                                    <div class="weather-metric-lbl">Cloud Cover</div>
+                                                </div>
+                                            </div>
+                                            <div class="weather-metric-tile">
+                                                <div class="weather-metric-icon"><i class="fa-solid fa-wind"></i></div>
+                                                <div class="weather-metric-body">
+                                                    <div class="weather-metric-val" id="weatherWind">-- km/h</div>
+                                                    <div class="weather-metric-lbl">Wind Speed</div>
+                                                </div>
+                                            </div>
+                                            <div class="weather-metric-tile">
+                                                <div class="weather-metric-icon"><i class="fa-regular fa-clock"></i></div>
+                                                <div class="weather-metric-body">
+                                                    <div class="weather-metric-val" id="weatherUpdatedTime">--</div>
+                                                    <div class="weather-metric-lbl">Last Updated</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="weather-error-banner" id="weatherErrorBanner" style="display:none;">
+                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                            <span>Weather data unavailable</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Quick Action Navigation Pills -->
+                                    <div class="quick-nav-actions">
+                                        <button class="btn-action-pill" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-house"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                        <button class="btn-action-pill" data-target-screen="screen-map">
+                                            <i class="fa-solid fa-map-location-dot"></i>
+                                            <span>Live Route Map</span>
+                                        </button>
+                                        <button class="btn-action-pill" data-target-screen="screen-route">
+                                            <i class="fa-solid fa-route"></i>
+                                            <span>Full Route Timetable</span>
+                                        </button>
+                                        <button class="btn-action-pill" data-target-screen="screen-alerts">
+                                            <i class="fa-solid fa-bell"></i>
+                                            <span>Operational Alerts</span>
+                                        </button>
+                                    </div>
+
+                                </div>
+
+                                <!-- RIGHT COLUMN: Meteorological Insights + Route Weather Progress -->
+                                <div class="passenger-col-right">
+                                    <div class="route-progress-card">
+                                        <div class="route-progress-header">
+                                            <div class="route-header-title-wrap">
+                                                <i class="fa-solid fa-cloud-bolt"></i>
+                                                <span class="route-header-title">Route Meteorology Summary</span>
+                                            </div>
+                                            <span class="progress-pct-bold" id="weatherRouteProgressPct">--% completed</span>
+                                        </div>
+                                        <div style="padding: 12px 14px; font-size: 11.5px; color: var(--text-secondary); line-height: 1.6;">
+                                            <div style="display: flex; flex-direction: column; gap: 8px;">
+                                                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                                                    <span><strong>Selected Train:</strong></span>
+                                                    <span id="weatherSummaryTrainName" style="color:var(--primary-navy); font-weight:700;">--</span>
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                                                    <span><strong>Current Location:</strong></span>
+                                                    <span id="weatherCurrentSectorText" style="color:#0D5C3A; font-weight:600;">--</span>
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                                                    <span><strong>Current Weather:</strong></span>
+                                                    <span id="weatherCurrentSummaryWeather" style="color:#0284C7; font-weight:600;">--</span>
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                                                    <span><strong>Next Station:</strong></span>
+                                                    <span id="weatherNextStopText" style="color:var(--primary-navy); font-weight:600;">--</span>
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                                                    <span><strong>Track Condition:</strong></span>
+                                                    <span id="weatherTrackConditionRisk" style="color:#10B981; font-weight:600;">Normal Track Conditions</span>
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border-subtle); padding-bottom: 6px;">
+                                                    <span><strong>Radar Status:</strong></span>
+                                                    <span id="weatherRadarStatusSummary" style="color:#0284C7; font-weight:600;">RainViewer Doppler Stream Active</span>
+                                                </div>
+                                                <div style="display:flex; justify-content:space-between;">
+                                                    <span><strong>Last Weather Update:</strong></span>
+                                                    <span id="weatherLastUpdateSummary" style="color:#64748B; font-weight:600;">Live</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </section>
+
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 6: ALERTS & BULLETINS SCREEN
+                             ---------------------------------------------------- -->
+                        <section id="screen-alerts" class="app-screen">
+                            <div class="passenger-alerts-layout">
+                                
+                                <!-- 1. Screen Header Card -->
+                                <div class="screen-header-card">
+                                    <div class="screen-header-left">
+                                        <div class="screen-badge-icon">
+                                            <i class="fa-solid fa-bell"></i>
+                                        </div>
+                                        <div>
+                                            <h2 class="screen-main-title">Operational Alerts</h2>
+                                            <span class="screen-sub-title">Real-time alerts, signals & delay factors impacting your journey</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn-back-action" data-target-screen="screen-details">
+                                        <i class="fa-solid fa-arrow-left"></i>
+                                        <span>Overview</span>
+                                    </button>
+                                </div>
+
+                                <!-- 2. Train Summary Card -->
+                                <div class="train-hero-card train-compact-card">
+                                    <div class="train-hero-row">
+                                        <div class="train-num-name">
+                                            <span class="train-no" id="alertsScreenTrainNo">12951</span>
+                                            <span class="train-route" id="alertsScreenRouteSubtitle">Mumbai Central (MMCT) → New Delhi (NDLS)</span>
+                                        </div>
+                                        <div class="train-status-badge" id="alertsScreenRunningStatusPill">
+                                            <span class="status-badge-dot"></span>
+                                            <span id="alertsScreenRunningStatusText">Running 14 min late</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- 3. Real-Time Operational Alerts Card Container -->
+                                <div class="alerts-feed-card">
+                                    <div class="alerts-feed-header">
+                                        <div class="alerts-feed-title">
+                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                            <span>Active Journey Bulletins & Signals</span>
+                                        </div>
+                                        <span class="alerts-feed-count-tag" id="alertsFeedCountBadge">3 Bulletins Active</span>
+                                    </div>
+
+                                    <!-- Alert Cards Feed Container -->
+                                    <div id="passengerAlertsList" class="alerts-feed-list">
+                                        <!-- Populated dynamically via JS -->
+                                    </div>
+                                </div>
+
+                                <!-- 4. Quick Action Navigation Pills -->
+                                <div class="quick-nav-actions">
+                                    <button class="btn-action-pill" data-target-screen="screen-details">
+                                        <i class="fa-solid fa-house"></i>
+                                        <span>Train Overview</span>
+                                    </button>
+                                    <button class="btn-action-pill" data-target-screen="screen-map">
+                                        <i class="fa-solid fa-map-location-dot"></i>
+                                        <span>Live Route Map</span>
+                                    </button>
+                                    <button class="btn-action-pill" data-target-screen="screen-route">
+                                        <i class="fa-solid fa-route"></i>
+                                        <span>Station Route Timetable</span>
+                                    </button>
+                                    <button class="btn-action-pill" data-target-screen="screen-weather">
+                                        <i class="fa-solid fa-cloud-sun-rain"></i>
+                                        <span>Weather Radar</span>
+                                    </button>
+                                </div>
+
+                            </div>
+                        </section>
+
+
+                        <!-- ----------------------------------------------------
+                             SCREEN 7: DEDICATED AVAILABLE TRAINS BETWEEN STATIONS
+                             ---------------------------------------------------- -->
+                        <section id="screen-trains-between" class="app-screen">
+                            <div class="passenger-details-layout passenger-between-layout">
+                                <div class="passenger-col-left" style="grid-column: 1 / -1; width:100%; max-width: 960px; margin: 0 auto;">
+                                    
+                                    <!-- 1. Screen Header Card -->
+                                    <div class="screen-header-card">
+                                        <div class="screen-header-left">
+                                            <div class="screen-badge-icon">
+                                                <i class="fa-solid fa-train-subway"></i>
+                                            </div>
+                                            <div>
+                                                <h2 class="screen-main-title" id="betweenResultsTitle">Available Trains</h2>
+                                                <span class="screen-sub-title" id="betweenResultsSubtitle">Direct Trains & Real-Time Operational Status</span>
+                                            </div>
+                                        </div>
+                                        <button class="btn-back-action" data-target-screen="screen-details">
+                                            <i class="fa-solid fa-arrow-left"></i>
+                                            <span>Overview</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- 2. Search / Route Filter Banner -->
+                                    <div class="between-search-summary-card">
+                                        <div class="summary-route-visual">
+                                            <div class="route-station-pill origin">
+                                                <i class="fa-solid fa-circle-dot"></i>
+                                                <span id="betweenSummaryFromCode">MMCT</span>
+                                                <small id="betweenSummaryFromName">Mumbai Central</small>
+                                            </div>
+                                            <div class="route-arrow-flow">
+                                                <span class="arrow-line"></span>
+                                                <i class="fa-solid fa-train"></i>
+                                                <span class="arrow-line"></span>
+                                            </div>
+                                            <div class="route-station-pill dest">
+                                                <i class="fa-solid fa-location-dot"></i>
+                                                <span id="betweenSummaryToCode">NDLS</span>
+                                                <small id="betweenSummaryToName">New Delhi</small>
+                                            </div>
+                                        </div>
+                                        <div class="summary-counts-pill">
+                                            <span id="betweenFoundCountBadge" class="found-badge">0 Trains Available</span>
+                                            <span class="live-status-source-tag"><i class="fa-solid fa-tower-broadcast"></i> RailRadar Live</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- 3. Dynamic Trains List Container -->
+                                    <div id="betweenTrainsListContainer" class="between-trains-list">
+                                        <!-- Dynamically populated via JS -->
+                                    </div>
+
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Floating Bottom Navigation Bar (5 Tabs) -->
+                        <nav class="phone-bottom-nav">
+                            <button class="bottom-tab-item active" data-target-screen="screen-details">
+                                <i class="fa-solid fa-house"></i>
+                                <span>Overview</span>
+                            </button>
+                            <button class="bottom-tab-item" data-target-screen="screen-map">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                                <span>Live Map</span>
+                            </button>
+                            <button class="bottom-tab-item" data-target-screen="screen-route">
+                                <i class="fa-solid fa-route"></i>
+                                <span>Route</span>
+                            </button>
+                            <button class="bottom-tab-item" data-target-screen="screen-weather">
+                                <i class="fa-solid fa-cloud-sun-rain"></i>
+                                <span>Weather</span>
+                            </button>
+                            <button class="bottom-tab-item" data-target-screen="screen-alerts">
+                                <i class="fa-solid fa-bell"></i>
+                                <span>Alerts</span>
+                            </button>
+                        </nav>
+
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ============================================================
+                 INTERFACE 2: STATION DISPLAY BOARD (FIDS)
+                 ============================================================ -->
+            <div id="view-station-board" class="portal-view-container">
+                
+                <div class="fids-board-wrapper">
+                    <div class="fids-board-container">
+                        
+                        <div class="fids-header-bar">
+                            <div class="fids-station-meta">
+                                <div class="fids-station-logo"><i class="fa-solid fa-building-columns"></i></div>
+                                <div>
+                                    <h2 class="fids-title-text" id="fidsStationTitle">New Delhi Railway Station</h2>
+                                    <span class="fids-code-badge" id="fidsStationCode">NDLS</span>
+                                </div>
+                            </div>
+
+                            <div class="fids-controls-bar">
+                                <select class="fids-select-dropdown" id="fidsStationSelect">
+                                    <option value="NDLS">NDLS - New Delhi</option>
+                                    <option value="MMCT">MMCT - Mumbai Central</option>
+                                    <option value="CSMT">CSMT - Mumbai CSMT</option>
+                                    <option value="BRC">BRC - Vadodara Jn</option>
+                                    <option value="HWH">HWH - Howrah Jn</option>
+                                    <option value="BSB">BSB - Varanasi Jn</option>
+                                    <option value="RKMP">RKMP - Rani Kamlapati</option>
+                                    <option value="KOTA">KOTA - Kota Jn</option>
+                                    <option value="RTM">RTM - Ratlam Jn</option>
+                                    <option value="NK">NK - Nashik Road</option>
+                                </select>
+
+                                <div class="fids-mode-toggle">
+                                    <button class="fids-mode-btn active" data-fids-mode="arrivals">ARRIVALS</button>
+                                    <button class="fids-mode-btn" data-fids-mode="departures">DEPARTURES</button>
+                                </div>
+
+                                <button class="btn-occ-action" id="btnRefreshFids">
+                                    <i class="fa-solid fa-arrows-rotate"></i> Refresh
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="fids-clock-banner">
+                            <span><i class="fa-solid fa-satellite"></i> Live Dynamic ETA Feed (Sectional Intelligence Engine)</span>
+                            <span class="fids-live-clock live-clock-target">23 Apr 2025 10:24 AM</span>
+                        </div>
+
+                        <div class="fids-table-scroll">
+                            <table class="fids-display-table">
+                                <thead>
+                                    <tr>
+                                        <th>Train No.</th>
+                                        <th>Train Name</th>
+                                        <th>From</th>
+                                        <th>To</th>
+                                        <th>Expected</th>
+                                        <th>Delay</th>
+                                        <th>Platform</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fidsTableBody">
+                                    <!-- Populated dynamically via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Operational Alert Bar at Bottom of Station Board -->
+                        <div class="fids-bottom-alert-bar">
+                            <i class="fa-solid fa-bullhorn"></i>
+                            <span><strong>Important:</strong> Track maintenance between NDLS - BPL from 10:00 AM to 2:00 PM. Expect delays.</span>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ============================================================
+                 INTERFACE 3: CONTROL ROOM (OCC)
+                 GatiSetu Dynamic ETA Control Room
+                 ============================================================ -->
+            <div id="view-control-room" class="portal-view-container occ-ref-view-root">
+                
+                <div class="occ-ref-layout-canvas">
+                    
+                    <!-- 1. Top Header Bar (80-90px) -->
+                    <header class="occ-ref-header">
+                        <div class="occ-header-left">
+                            <div class="occ-brand-badge">
+                                <i class="fa-solid fa-train"></i>
+                            </div>
+                            <div class="occ-brand-text-block">
+                                <span class="occ-brand-name"><span class="brand-part-white">Gati</span><span class="brand-part-green">Setu</span></span>
+                            </div>
+                            <div class="occ-header-divider"></div>
+                            <div class="occ-header-title-block">
+                                <h1 class="occ-header-main-title">Dynamic ETA Control Room</h1>
+                                <span class="occ-header-sub-title">Unified Indian Railways Dynamic ETA System</span>
+                            </div>
+                        </div>
+
+                        <div class="occ-header-right">
+                            <div class="occ-time-block">
+                                <span class="occ-date-str" id="occHeaderDate">26 Sep 2026</span>
+                                <span class="occ-clock-str live-clock-target" id="occHeaderTime">21:12</span>
+                            </div>
+
+                            <div class="occ-status-pill">
+                                <span class="occ-status-zone-lbl">Control Room</span>
+                                <span class="occ-live-badge"><span class="occ-live-pulse-dot"></span> Live</span>
+                            </div>
+
+                            <div class="occ-staff-profile-pill" title="Signed in as Control Room Staff">
+                                <div class="occ-avatar-circle">
+                                    <i class="fa-regular fa-user"></i>
+                                </div>
+                                <div class="occ-staff-info-col">
+                                    <div class="occ-staff-role-name">Control Room Staff</div>
+                                    <div class="occ-staff-zone-name">Northern Railway Zone</div>
+                                </div>
+                            </div>
+
+                            <!-- Exit / Switch to Passenger View -->
+                            <button type="button" class="occ-btn-switch-role" id="btnOccReturnPassenger" title="Switch to Passenger View">
+                                <i class="fa-solid fa-arrow-left"></i>
+                                <span>Passenger</span>
+                            </button>
+
+                            <button type="button" class="occ-btn-logout" id="btnLogoutStaffOCC" title="Logout">
+                                <i class="fa-solid fa-right-from-bracket"></i>
+                            </button>
+                        </div>
+                    </header>
+
+                    <!-- 2. Main 3-Column Workspace -->
+                    <div class="occ-ref-workspace">
+                        
+                        <!-- Left Column: Navigation Sidebar (220-240px) -->
+                        <aside class="occ-ref-sidebar">
+                            <nav class="occ-sidebar-nav">
+                                <button type="button" class="occ-nav-item active" data-occ-tab="live-map">
+                                    <i class="fa-solid fa-map"></i>
+                                    <span>Live Map</span>
+                                </button>
+                                <button type="button" class="occ-nav-item" data-occ-tab="all-trains" id="btnNavAllTrains">
+                                    <i class="fa-solid fa-train"></i>
+                                    <span>All Trains</span>
+                                </button>
+                                <button type="button" class="occ-nav-item" data-occ-tab="alerts" id="btnNavAlerts">
+                                    <i class="fa-solid fa-bell"></i>
+                                    <span>Alerts & Notifications</span>
+                                    <span class="occ-nav-badge-red" id="occSidebarAlertsBadge">3</span>
+                                </button>
+                                <button type="button" class="occ-nav-item" data-occ-tab="station-view" id="btnNavStationView">
+                                    <i class="fa-solid fa-landmark"></i>
+                                    <span>Station View</span>
+                                </button>
+                                <button type="button" class="occ-nav-item" data-occ-tab="reports" id="btnNavReports">
+                                    <i class="fa-solid fa-file-lines"></i>
+                                    <span>Reports</span>
+                                </button>
+                                <button type="button" class="occ-nav-item" data-occ-tab="settings" id="btnNavSettings">
+                                    <i class="fa-solid fa-gear"></i>
+                                    <span>Settings</span>
+                                </button>
+                            </nav>
+
+                            <div class="occ-sidebar-footer">
+                                <div class="occ-sidebar-footer-title">GatiSetu Control Room</div>
+                                <div class="occ-sidebar-footer-sub">Dynamic ETA Operations • v2.4</div>
+                            </div>
+                        </aside>
+
+                        <!-- Center Column: Main Interactive Map (60-65% width) -->
+                        <main class="occ-ref-map-col">
+                            <div class="occ-map-viewport-card" id="occMapViewportCard">
+                                
+                                <!-- Map Top Floating Control Bar -->
+                                <div class="occ-map-overlay-top">
+                                    <!-- Map Mode Toggle Buttons -->
+                                    <div class="occ-map-mode-pills">
+                                        <button type="button" class="occ-mode-pill active" data-mode="live" id="btnModeLiveMap">
+                                            <i class="fa-solid fa-map"></i>
+                                            <span>Live Train Map</span>
+                                        </button>
+                                        <button type="button" class="occ-mode-pill" data-mode="heat" id="btnModeHeatMap">
+                                            <i class="fa-solid fa-fire"></i>
+                                            <span>Heat Map</span>
+                                        </button>
+                                        <button type="button" class="occ-mode-pill" data-mode="route" id="btnModeRouteView">
+                                            <i class="fa-solid fa-route"></i>
+                                            <span>Route View</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Search Input Bar -->
+                                    <div class="occ-map-search-bar">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        <input type="text" id="occMapSearchInput" placeholder="Search train no. / station / route..." autocomplete="off" />
+                                        <button type="button" id="btnOccClearSearch" class="occ-btn-search-clear" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                                    </div>
+                                </div>
+
+                                <!-- Leaflet Interactive Map Canvas -->
+                                <div class="occ-leaflet-map-canvas" id="occControlRoomMap"></div>
+
+                                <!-- Top-Left Floating Map Navigation Controls (+ / - / Locate) -->
+                                <div class="occ-map-float-tools">
+                                    <button type="button" class="occ-float-tool-btn" id="btnOccZoomIn" title="Zoom In (+)">
+                                        <i class="fa-solid fa-plus"></i>
+                                    </button>
+                                    <button type="button" class="occ-float-tool-btn" id="btnOccZoomOut" title="Zoom Out (−)">
+                                        <i class="fa-solid fa-minus"></i>
+                                    </button>
+                                    <button type="button" class="occ-float-tool-btn" id="btnOccCenterMap" title="Center Full India Network (🎯)">
+                                        <i class="fa-solid fa-crosshairs"></i>
+                                    </button>
+                                </div>
+
+                                <!-- Top-Right Floating Compass Rose -->
+                                <div class="occ-map-compass-badge" title="North Orientation">
+                                    <span class="compass-n">N</span>
+                                    <i class="fa-solid fa-location-arrow compass-arrow"></i>
+                                </div>
+
+                                <!-- Bottom-Left Floating Legend Card -->
+                                <div class="occ-floating-legend">
+                                    <div class="legend-card-title">Legend</div>
+                                    <div class="legend-card-rows">
+                                        <div class="legend-row">
+                                            <span class="legend-symbol-pill symbol-ontime"><i class="fa-solid fa-train"></i></span>
+                                            <span class="legend-text">Train (On Time)</span>
+                                        </div>
+                                        <div class="legend-row">
+                                            <span class="legend-symbol-pill symbol-delayed"><i class="fa-solid fa-train"></i></span>
+                                            <span class="legend-text">Train (Delayed)</span>
+                                        </div>
+                                        <div class="legend-row">
+                                            <span class="legend-symbol-pill symbol-sigdelay"><i class="fa-solid fa-train"></i></span>
+                                            <span class="legend-text">Train (Significant Delay)</span>
+                                        </div>
+                                        <div class="legend-row">
+                                            <span class="legend-dot-station"></span>
+                                            <span class="legend-text">Station</span>
+                                        </div>
+                                        <div class="legend-row">
+                                            <span class="legend-line-solid"></span>
+                                            <span class="legend-text">Railway Line</span>
+                                        </div>
+                                        <div class="legend-row">
+                                            <span class="legend-line-dashed"></span>
+                                            <span class="legend-text">Planned/Other Line</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Bottom-Right Floating Scale Bar -->
+                                <div class="occ-floating-scale-bar">
+                                    <div class="scale-ticks-labels">
+                                        <span>0</span>
+                                        <span>100</span>
+                                        <span>200</span>
+                                        <span>300</span>
+                                        <span>500 km</span>
+                                    </div>
+                                    <div class="scale-bar-line"></div>
+                                </div>
+
+                                <!-- Dynamic Train Inspection Tooltip / Card -->
+                                <div class="occ-floating-train-card" id="occFloatingTrainCard" style="display:none;">
+                                    <div class="train-card-header">
+                                        <div class="train-card-header-left">
+                                            <span class="card-train-no-pill" id="occInspectTrainNo">12951</span>
+                                            <span class="card-train-name-text" id="occInspectTrainName">Rajdhani Express</span>
+                                        </div>
+                                        <button type="button" class="btn-card-close" id="btnCloseInspectCard">×</button>
+                                    </div>
+                                    <div class="train-card-body-grid">
+                                        <div class="card-metric-cell">
+                                            <span class="metric-lbl">Status</span>
+                                            <span class="metric-val" id="occInspectStatus">On Time</span>
+                                        </div>
+                                        <div class="card-metric-cell">
+                                            <span class="metric-lbl">Current Speed</span>
+                                            <span class="metric-val font-mono" id="occInspectSpeed">114 km/h</span>
+                                        </div>
+                                        <div class="card-metric-cell">
+                                            <span class="metric-lbl">Delay</span>
+                                            <span class="metric-val font-mono" id="occInspectDelay">+0 min</span>
+                                        </div>
+                                        <div class="card-metric-cell">
+                                            <span class="metric-lbl">Dynamic ETA</span>
+                                            <span class="metric-val font-mono text-emerald" id="occInspectETA">08:32 AM</span>
+                                        </div>
+                                        <div class="card-metric-cell span-2">
+                                            <span class="metric-lbl">Current Location</span>
+                                            <span class="metric-val" id="occInspectLocation">--</span>
+                                        </div>
+                                        <div class="card-metric-cell span-2">
+                                            <span class="metric-lbl">Next Station Halt</span>
+                                            <span class="metric-val" id="occInspectNextStation">--</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </main>
+
+                        <!-- Right Column: Information Panel (380-420px) -->
+                        <aside class="occ-ref-right-col">
+                            
+                            <!-- Card 1: Live Trains Table -->
+                            <div class="occ-panel-card occ-card-live-trains">
+                                <div class="occ-panel-card-header">
+                                    <div class="panel-header-title">
+                                        <i class="fa-solid fa-train"></i>
+                                        <span>Live Trains (Total: <span id="occTotalTrainsCount">12</span>)</span>
+                                    </div>
+                                </div>
+
+                                <!-- KPI Summary Row -->
+                                <div class="occ-kpi-summary-strip">
+                                    <div class="kpi-strip-item item-ontime">
+                                        <div class="kpi-strip-lbl"><span class="dot ontime"></span> On Time</div>
+                                        <div class="kpi-strip-val" id="occOnTimeCount">88</div>
+                                    </div>
+                                    <div class="kpi-strip-item item-delayed">
+                                        <div class="kpi-strip-lbl"><span class="dot delayed"></span> Delayed</div>
+                                        <div class="kpi-strip-val" id="occDelayedCount">24</div>
+                                    </div>
+                                    <div class="kpi-strip-item item-sigdelay">
+                                        <div class="kpi-strip-lbl"><span class="dot sigdelay"></span> Significant Delay</div>
+                                        <div class="kpi-strip-val" id="occSigDelayCount">12</div>
+                                    </div>
+                                </div>
+
+                                <!-- Monitored Trains Table -->
+                                <div class="occ-table-scroll-container">
+                                    <table class="occ-live-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="width:22%;">Train No.</th>
+                                                <th style="width:40%;">Route</th>
+                                                <th style="width:23%;">Status</th>
+                                                <th style="width:15%; text-align:right;">ETA</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="occLiveTrainsTableBody">
+                                            <!-- Dynamically populated from API -->
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <div class="occ-panel-card-footer">
+                                    <button type="button" class="occ-btn-view-all" id="btnOccViewAllTrains">View All Trains →</button>
+                                </div>
+                            </div>
+
+                            <!-- Card 2: Active Operational Alerts -->
+                            <div class="occ-panel-card occ-card-active-alerts">
+                                <div class="occ-panel-card-header">
+                                    <div class="panel-header-title">
+                                        <i class="fa-solid fa-bell"></i>
+                                        <span>Active Alerts</span>
+                                    </div>
+                                    <button type="button" class="occ-btn-view-all" id="btnOccViewAllAlerts">View All →</button>
+                                </div>
+
+                                <div class="occ-alerts-scroll-container" id="occActiveAlertsList">
+                                    <!-- Dynamically populated from API -->
+                                </div>
+                            </div>
+
+                        </aside>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </main>
+
+
+        <!-- Footer -->
+        <footer class="app-global-footer">
+            <div class="footer-inner">
+                <span>GatiSetu — Smarter Railways. Better Journeys.</span>
+            </div>
+        </footer>
+
+    </div>
+
+    <!-- Leaflet Map Script -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- MapLibre GL JS Script (OpenFreeMap Dark Basemap) -->
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    
+    <!-- Application Scripts -->
+    <script src="js/api.js"></script>
+    <script src="js/eta_factors.js"></script>
+    <script src="js/data_service.js"></script>
+    <script src="js/map_view.js"></script>
+    <script src="js/station_board.js"></script>
+    <script src="js/control_room.js"></script>
+    <script src="js/passenger_app.js"></script>
+</body>
+</html>

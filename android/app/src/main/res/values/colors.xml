@@ -1,0 +1,9 @@
+<resources>
+    <color name="primary_navy">#0A192F</color>
+    <color name="primary_blue">#1E40AF</color>
+    <color name="accent_cyan">#0284C7</color>
+    <color name="status_green">#10B981</color>
+    <color name="status_red">#EF4444</color>
+    <color name="status_amber">#F59E0B</color>
+    <color name="background">#0B132B</color>
+</resources>

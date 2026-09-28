@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Portal Authentication - GatiSetu</title>
+    
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="/css/main.css">
+    
+    <style>
+        /* Dedicated, Self-Contained Styles for Staff Portal Login Page */
+        :root {
+            --primary-navy: #0F2C59;
+            --primary-navy-dark: #0A1C38;
+            --gatisetu-green: #0D5C3A;
+            --gatisetu-green-light: #059669;
+            --gatisetu-mint: #ECFDF5;
+            --gatisetu-mint-border: #A7F3D0;
+            --bg-page: #F1F5F9;
+            --bg-card: #FFFFFF;
+            --text-main: #0F172A;
+            --text-body: #334155;
+            --text-muted: #64748B;
+            --border-subtle: #E2E8F0;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 9999px;
+            --shadow-card: 0 10px 30px -4px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: var(--font-main);
+            background-color: var(--bg-page);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header */
+        .staff-auth-navbar {
+            background-color: #FFFFFF;
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        }
+
+        .staff-nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+        }
+
+        .staff-nav-logo {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, var(--primary-navy), var(--gatisetu-green));
+            color: #FFFFFF;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 2px 6px rgba(13, 92, 58, 0.2);
+        }
+
+        .staff-nav-title {
+            font-size: 19px;
+            font-weight: 800;
+            color: var(--primary-navy);
+            letter-spacing: -0.3px;
+            line-height: 1.1;
+        }
+
+        .staff-nav-sub {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .btn-back-passenger {
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-subtle);
+            color: var(--primary-navy);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 7px 14px;
+            border-radius: var(--radius-full);
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-back-passenger:hover {
+            background-color: var(--gatisetu-mint);
+            border-color: var(--gatisetu-mint-border);
+            color: var(--gatisetu-green);
+        }
+
+        /* Main Container */
+        .staff-auth-main {
+            flex: 1 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+        }
+
+        .staff-auth-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-card);
+            width: 100%;
+            max-width: 480px;
+            padding: 32px 36px;
+            box-sizing: border-box;
+        }
+
+        .staff-card-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .staff-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background-color: #EFF6FF;
+            color: #1E40AF;
+            border: 1px solid #BFDBFE;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .staff-card-title {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary-navy);
+            margin: 0 0 6px 0;
+            letter-spacing: -0.4px;
+        }
+
+        .staff-card-subtitle {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        /* 1-Click Quick Demo Login */
+        .quick-demo-box {
+            background-color: #F8FAFC;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            margin-bottom: 22px;
+        }
+
+        .quick-demo-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .quick-demo-btns {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .btn-quick-demo {
+            background-color: #FFFFFF;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-body);
+            font-size: 11.5px;
+            font-weight: 700;
+            padding: 7px 10px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+        }
+
+        .btn-quick-demo:hover {
+            border-color: #3B82F6;
+            color: #1D4ED8;
+            background-color: #EFF6FF;
+        }
+
+        /* Form Controls */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--primary-navy);
+            margin-bottom: 6px;
+        }
+
+        .form-label i {
+            color: var(--text-muted);
+            margin-right: 4px;
+        }
+
+        .form-control-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .form-input-icon {
+            position: absolute;
+            left: 12px;
+            color: var(--text-muted);
+            font-size: 13px;
+            pointer-events: none;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px 0 36px;
+            font-size: 13.5px;
+            font-weight: 500;
+            color: var(--text-main);
+            background-color: #F8FAFC;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            outline: none;
+            transition: all 0.15s ease;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        .form-select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748B'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 36px;
+        }
+
+        .form-input:focus, .form-select:focus {
+            border-color: var(--primary-navy);
+            background-color: #FFFFFF;
+            box-shadow: 0 0 0 3px rgba(15, 44, 89, 0.08);
+        }
+
+        .btn-toggle-eye {
+            position: absolute;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 6px;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-toggle-eye:hover {
+            color: var(--primary-navy);
+        }
+
+        .btn-forgot-pass {
+            background: transparent;
+            border: none;
+            color: #2563EB;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .btn-forgot-pass:hover {
+            text-decoration: underline;
+        }
+
+        /* Error / Notice Alert */
+        .auth-alert-box {
+            display: none;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            line-height: 1.4;
+            margin-bottom: 16px;
+        }
+
+        .auth-alert-error {
+            background-color: #FEF2F2;
+            border: 1px solid #FECACA;
+            color: #DC2626;
+        }
+
+        .auth-alert-info {
+            background-color: #EFF6FF;
+            border: 1px solid #BFDBFE;
+            color: #1E40AF;
+        }
+
+        /* Submit Button */
+        .btn-sign-in-main {
+            width: 100%;
+            height: 46px;
+            background: linear-gradient(135deg, var(--primary-navy), #1E3A8A);
+            color: #FFFFFF;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 3px 8px rgba(15, 44, 89, 0.25);
+            transition: all 0.15s ease;
+            margin-top: 6px;
+        }
+
+        .btn-sign-in-main:hover {
+            background: linear-gradient(135deg, var(--primary-navy-dark), var(--primary-navy));
+            transform: translateY(-1px);
+            box-shadow: 0 5px 12px rgba(15, 44, 89, 0.35);
+        }
+
+        .btn-sign-in-main:active {
+            transform: translateY(1px);
+        }
+
+        /* Security Note Footer */
+        .staff-security-note {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+            font-size: 11.5px;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .staff-security-note i {
+            color: var(--gatisetu-green-light);
+            font-size: 13px;
+        }
+
+        /* Global Page Footer */
+        .staff-auth-footer {
+            background-color: #FFFFFF;
+            border-top: 1px solid var(--border-subtle);
+            padding: 14px 20px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 540px) {
+            .staff-auth-card {
+                padding: 24px 20px;
+            }
+            .quick-demo-btns {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navigation -->
+    <header class="staff-auth-navbar">
+        <a href="/" class="staff-nav-brand">
+            <div class="staff-nav-logo">
+                <i class="fa-solid fa-train-subway"></i>
+            </div>
+            <div>
+                <div class="staff-nav-title">GatiSetu</div>
+                <div class="staff-nav-sub">Dynamic ETA & Railway Operations</div>
+            </div>
+        </a>
+
+        <a href="/" class="btn-back-passenger">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Passenger App</span>
+        </a>
+    </header>
+
+    <!-- Main Authentication Workspace -->
+    <main class="staff-auth-main">
+        <div class="staff-auth-card">
+            
+            <div class="staff-card-header">
+                <div class="staff-badge-pill">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <span>Authorized Operations</span>
+                </div>
+                <h1 class="staff-card-title">Staff Portal</h1>
+                <p class="staff-card-subtitle">Secure access to railway operations & network control</p>
+            </div>
+
+            <!-- 1-Click Quick Demo Login Presets -->
+            <div class="quick-demo-box">
+                <div class="quick-demo-title">
+                    <i class="fa-solid fa-bolt text-amber"></i>
+                    <span>1-Click Quick Demo Login:</span>
+                </div>
+                <div class="quick-demo-btns">
+                    <button type="button" class="btn-quick-demo" id="btnQuickStation">
+                        <i class="fa-solid fa-tv text-blue"></i>
+                        <span>Station Master</span>
+                    </button>
+                    <button type="button" class="btn-quick-demo" id="btnQuickOCC">
+                        <i class="fa-solid fa-tower-observation text-purple"></i>
+                        <span>OCC Controller</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status / Error Notification Box -->
+            <div id="authAlertBox" class="auth-alert-box auth-alert-error"></div>
+
+            <!-- Staff Login Form -->
+            <form id="staffLoginPageForm">
+                
+                <!-- Role Authorization Dropdown -->
+                <div class="form-group">
+                    <label class="form-label" for="loginRoleSelect">
+                        <span><i class="fa-solid fa-id-badge"></i> Role Authorization</span>
+                    </label>
+                    <div class="form-control-wrap">
+                        <i class="fa-solid fa-user-gear form-input-icon"></i>
+                        <select class="form-select" id="loginRoleSelect" required>
+                            <option value="station_staff">Station Master (Station Display FIDS)</option>
+                            <option value="control_room">OCC Controller (Operations Control Center)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Staff ID / Employee ID -->
+                <div class="form-group">
+                    <label class="form-label" for="loginUsernameInput">
+                        <span><i class="fa-solid fa-user"></i> Staff ID / Employee ID</span>
+                    </label>
+                    <div class="form-control-wrap">
+                        <i class="fa-solid fa-hashtag form-input-icon"></i>
+                        <input type="text" id="loginUsernameInput" class="form-input" placeholder="e.g. station_master" value="station_master" required autocomplete="username">
+                    </div>
+                </div>
+
+                <!-- Password Field -->
+                <div class="form-group">
+                    <div class="form-label">
+                        <span><i class="fa-solid fa-lock"></i> Password</span>
+                        <button type="button" class="btn-forgot-pass" id="btnForgotPass">Demo Credentials?</button>
+                    </div>
+                    <div class="form-control-wrap">
+                        <i class="fa-solid fa-key form-input-icon"></i>
+                        <input type="password" id="loginPasswordInput" class="form-input" placeholder="Enter password" value="railway123" required autocomplete="current-password">
+                        <button type="button" class="btn-toggle-eye" id="btnToggleEye" title="Toggle password visibility">
+                            <i class="fa-solid fa-eye" id="eyeIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Submit Sign In Button -->
+                <button type="submit" class="btn-sign-in-main" id="btnSubmitLogin">
+                    <span id="loginSpinner" style="display:none;"><i class="fa-solid fa-circle-notch fa-spin"></i></span>
+                    <span>Sign In</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+
+            </form>
+
+            <!-- Security Footer Note -->
+            <div class="staff-security-note">
+                <i class="fa-solid fa-shield-check"></i>
+                <span>Authorized railway staff only • 256-bit Encrypted Session</span>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Global Footer -->
+    <footer class="staff-auth-footer">
+        <span>GatiSetu — Smarter Railways. Better Journeys.</span>
+    </footer>
+
+    <!-- Script Handling -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const form = document.getElementById('staffLoginPageForm');
+            const roleSelect = document.getElementById('loginRoleSelect');
+            const usernameInput = document.getElementById('loginUsernameInput');
+            const passwordInput = document.getElementById('loginPasswordInput');
+            const btnToggleEye = document.getElementById('btnToggleEye');
+            const eyeIcon = document.getElementById('eyeIcon');
+            const btnForgot = document.getElementById('btnForgotPass');
+            const alertBox = document.getElementById('authAlertBox');
+            const btnSubmit = document.getElementById('btnSubmitLogin');
+            const spinner = document.getElementById('loginSpinner');
+            
+            const btnQuickStation = document.getElementById('btnQuickStation');
+            const btnQuickOCC = document.getElementById('btnQuickOCC');
+
+            // Toggle Password Visibility
+            if (btnToggleEye && passwordInput) {
+                btnToggleEye.addEventListener('click', () => {
+                    const isPass = passwordInput.type === 'password';
+                    passwordInput.type = isPass ? 'text' : 'password';
+                    if (eyeIcon) {
+                        eyeIcon.className = isPass ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+                    }
+                });
+            }
+
+            // Quick Presets
+            if (btnQuickStation) {
+                btnQuickStation.addEventListener('click', () => {
+                    roleSelect.value = 'station_staff';
+                    usernameInput.value = 'station_master';
+                    passwordInput.value = 'railway123';
+                    hideAlert();
+                    executeLogin('station_master', 'railway123', 'station_staff');
+                });
+            }
+
+            if (btnQuickOCC) {
+                btnQuickOCC.addEventListener('click', () => {
+                    roleSelect.value = 'control_room';
+                    usernameInput.value = 'occ_controller';
+                    passwordInput.value = 'admin123';
+                    hideAlert();
+                    executeLogin('occ_controller', 'admin123', 'control_room');
+                });
+            }
+
+            // Forgot / Demo Credentials helper
+            if (btnForgot) {
+                btnForgot.addEventListener('click', () => {
+                    showAlert(`<strong>Demo Credentials:</strong><br>• Station Master: <code>station_master</code> / <code>railway123</code><br>• OCC Controller: <code>occ_controller</code> / <code>admin123</code>`, false);
+                });
+            }
+
+            function showAlert(msg, isError = true) {
+                if (!alertBox) return;
+                alertBox.className = `auth-alert-box ${isError ? 'auth-alert-error' : 'auth-alert-info'}`;
+                alertBox.innerHTML = msg;
+                alertBox.style.display = 'block';
+            }
+
+            function hideAlert() {
+                if (alertBox) alertBox.style.display = 'none';
+            }
+
+            // Form Submit
+            if (form) {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const u = usernameInput.value.trim();
+                    const p = passwordInput.value.trim();
+                    const r = roleSelect.value;
+                    executeLogin(u, p, r);
+                });
+            }
+
+            async function executeLogin(username, password, role) {
+                hideAlert();
+                if (btnSubmit) btnSubmit.disabled = true;
+                if (spinner) spinner.style.display = 'inline-block';
+
+                try {
+                    const res = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password, role })
+                    });
+
+                    if (!res.ok) {
+                        const errData = await res.json().catch(() => ({}));
+                        throw new Error(errData.detail || 'Invalid staff credentials');
+                    }
+
+                    const authData = await res.json();
+                    
+                    // Persist authentication state
+                    localStorage.setItem('gatisetu_staff_auth', JSON.stringify(authData));
+
+                    // Route based on role
+                    if (authData.role === 'station_staff') {
+                        window.location.href = '/station-board';
+                    } else {
+                        window.location.href = '/control-room';
+                    }
+                } catch (err) {
+                    if (btnSubmit) btnSubmit.disabled = false;
+                    if (spinner) spinner.style.display = 'none';
+                    showAlert(err.message || 'Authentication failed. Please check credentials.');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
