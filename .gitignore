@@ -4,6 +4,10 @@
 .env.*.local
 *.env
 
+# Large Datasets (>100MB, exceeds GitHub limit)
+backend/data/combined_delay.csv
+*.csv.gz
+
 # Python compilation and caches
 __pycache__/
 *.py[cod]
