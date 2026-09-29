@@ -543,7 +543,8 @@ class RouteMapTracker {
         const compassDir = this.getCompassDirection(headingDeg);
 
         const trainNo = train.train_number || '';
-        const trainSpeed = typeof train.current_speed_kmh === 'number' ? train.current_speed_kmh : 0;
+        const trainSpeed = typeof train.current_speed_kmh === 'number' ? train.current_speed_kmh : (typeof train.speed === 'number' ? train.speed : null);
+        const speedLabel = trainSpeed !== null ? `${trainSpeed} km/h` : 'Live';
         const trainDelay = typeof train.current_delay_mins === 'number' ? train.current_delay_mins : 0;
         const nextStnName = train.next_station ? train.next_station.name : 'En route';
         const nextStnETA = train.next_station ? (train.next_station.expected_eta || train.next_station.scheduled_eta) : '--:--';
@@ -557,7 +558,7 @@ class RouteMapTracker {
                 </div>
                 <div class="train-marker-label">
                     <span class="marker-train-no">${trainNo}</span>
-                    <span class="marker-speed">${trainSpeed} km/h</span>
+                    <span class="marker-speed">${speedLabel}</span>
                     <span class="marker-delay ${trainDelay > 0 ? 'is-late' : 'is-ontime'}">${trainDelay > 0 ? '+' + trainDelay + 'm' : 'RT'}</span>
                 </div>
             </div>

@@ -765,6 +765,70 @@ class UnifiedGatiSetuApp {
         }
     }
 
+    clearTrainState() {
+        const setTxt = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = val;
+        };
+
+        setTxt('detailsTrainNo', '--');
+        setTxt('detailsRouteSubtitle', 'Loading train details...');
+        setTxt('mapScreenTrainNo', '--');
+        setTxt('mapScreenRouteSubtitle', 'Loading train details...');
+        setTxt('weatherScreenTrainNo', '--');
+        setTxt('weatherScreenRouteSubtitle', 'Loading train details...');
+        setTxt('routeScreenTrainNo', '--');
+        setTxt('routeScreenRouteSubtitle', 'Loading train details...');
+        setTxt('alertsScreenTrainNo', '--');
+        setTxt('alertsScreenRouteSubtitle', 'Loading train details...');
+
+        setTxt('detailsPredictedETA', '--:--');
+        setTxt('routePredictedETA', '--:--');
+        setTxt('detailsScheduledETA', 'vs scheduled --:--');
+        setTxt('routeScheduledETA', 'vs scheduled --:--');
+
+        setTxt('detailsCurrentLocation', 'Loading...');
+        setTxt('detailsCurrentSpeed', '--');
+        setTxt('mapCurrentLocation', 'Loading...');
+        setTxt('mapCurrentSpeed', '--');
+        setTxt('routeCurrentLocation', 'Loading...');
+        setTxt('routeCurrentSpeed', '--');
+
+        setTxt('detailsSourceCode', '--');
+        setTxt('detailsDestCode', '--');
+        setTxt('mapSourceCode', '--');
+        setTxt('mapDestCode', '--');
+        setTxt('routeScreenSourceCode', '--');
+        setTxt('routeScreenDestCode', '--');
+
+        setTxt('detailsProgressPct', '--% completed');
+        setTxt('mapProgressPct', '--% completed');
+        setTxt('routeScreenProgressPct', '--% completed');
+        setTxt('detailsDistanceMeta', '-- km covered · -- km remaining');
+        setTxt('mapDistanceMeta', '-- km covered · -- km remaining');
+        setTxt('routeScreenDistanceMeta', '-- km covered · -- km remaining');
+
+        const progressFill = document.getElementById('detailsProgressFill');
+        if (progressFill) progressFill.style.width = '0%';
+
+        const progressMarker = document.getElementById('detailsProgressMarker');
+        if (progressMarker) progressMarker.style.left = '0%';
+
+        const runningText = document.getElementById('detailsRunningStatusText');
+        if (runningText) runningText.textContent = 'Fetching status...';
+
+        const trackContainers = [
+            document.getElementById('routeTimelineTrackContainer'),
+            document.getElementById('mapRouteTimelineTrackContainer'),
+            document.getElementById('routeScreenProgressTrackContainer'),
+            document.getElementById('routeCompleteTimelineContainer'),
+            document.getElementById('routeTimetableTableBody')
+        ];
+        trackContainers.forEach(el => {
+            if (el) el.innerHTML = '';
+        });
+    }
+
     /**
      * Search & Train Rendering
      */
@@ -776,6 +840,7 @@ class UnifiedGatiSetuApp {
             return;
         }
 
+        this.clearTrainState();
         this.showSearchLoading(true);
         this.hideSearchError();
 
@@ -1224,8 +1289,10 @@ class UnifiedGatiSetuApp {
         // 3. Current Status (3 Compact Blocks for Details, Map & Route Screens)
         const loc = train.current_location || 'En route';
         const shortLoc = loc.split('(')[0].replace('Passing', '').replace('Approaching', '').trim() || loc;
-        const speedVal = (typeof train.current_speed_kmh === 'number') ? train.current_speed_kmh : (typeof train.speed === 'number' ? train.speed : 0);
-        const currentSpeedText = `${speedVal} km/h`;
+        const isNotStarted = (statusCode === 'NOT_STARTED' || statusRaw === 'NOT STARTED' || statusRaw === 'NOT-STARTED');
+        const isCompleted = (statusCode === 'COMPLETED' || statusRaw === 'COMPLETED');
+        const speedVal = (typeof train.current_speed_kmh === 'number') ? train.current_speed_kmh : (typeof train.speed === 'number' ? train.speed : null);
+        const currentSpeedText = (speedVal !== null && speedVal !== undefined) ? `${speedVal} km/h` : 'Data unavailable';
 
         setTxt('detailsCurrentLocation', shortLoc);
         setTxt('detailsCurrentSpeed', currentSpeedText);
@@ -1233,13 +1300,11 @@ class UnifiedGatiSetuApp {
         setTxt('mapCurrentSpeed', currentSpeedText);
         setTxt('routeCurrentLocation', shortLoc);
         setTxt('routeCurrentSpeed', currentSpeedText);
-        setTxt('mapToolbarSpeed', `${currentSpeedText} • GPS`);
+        setTxt('mapToolbarSpeed', (speedVal !== null && speedVal !== undefined) ? `${currentSpeedText} • GPS` : 'Data unavailable');
 
         // Update Top Mini Status Banner
         const simStatusTextEl = document.getElementById('simStatusText');
         const simSpeedIndicatorEl = document.getElementById('simSpeedIndicator');
-        const isNotStarted = (statusCode === 'NOT_STARTED' || statusRaw === 'NOT STARTED' || statusRaw === 'NOT-STARTED');
-        const isCompleted = (statusCode === 'COMPLETED' || statusRaw === 'COMPLETED');
 
         if (simStatusTextEl) {
             if (isNotStarted) {
@@ -1257,7 +1322,13 @@ class UnifiedGatiSetuApp {
             }
         }
         if (simSpeedIndicatorEl) {
-            simSpeedIndicatorEl.textContent = isNotStarted ? `${speedVal} km/h • Timetable` : `${speedVal} km/h • GPS`;
+            if (isNotStarted) {
+                simSpeedIndicatorEl.textContent = '0 km/h • Timetable';
+            } else if (speedVal !== null && speedVal !== undefined) {
+                simSpeedIndicatorEl.textContent = `${speedVal} km/h • GPS`;
+            } else {
+                simSpeedIndicatorEl.textContent = 'Data unavailable';
+            }
         }
 
         if (train.next_station) {

@@ -101,7 +101,30 @@ MAJOR_STATION_COORDS = {
     "DD": [18.4650, 74.5820],
     "AK": [20.7002, 77.0082],
     "BD": [20.9167, 77.7500],
-    "WR": [20.7453, 78.6022]
+    "WR": [20.7453, 78.6022],
+    "DDR": [19.0178, 72.8478],
+    "DR": [19.0178, 72.8478],
+    "VR": [19.4542, 72.8118],
+    "PLG": [19.6974, 72.7663],
+    "PL": [19.6974, 72.7663],
+    "BOR": [20.0800, 72.7500],
+    "VAPI": [20.3713, 72.9043],
+    "BL": [20.6100, 72.9260],
+    "BIM": [20.8000, 72.9300],
+    "NVS": [20.9500, 72.9300],
+    "BH": [21.7051, 72.9959],
+    "NDB": [21.3667, 74.2333],
+    "NUR": [21.3667, 74.2333],
+    "DDE": [21.3200, 74.4800],
+    "SNK": [21.3000, 74.7000],
+    "AN": [21.0500, 75.0500],
+    "DXG": [21.0100, 75.3000],
+    "BHET": [21.1400, 72.8800],
+    "CHM": [21.1800, 73.0500],
+    "BIY": [21.2200, 73.2500],
+    "VYA": [21.2800, 73.4000],
+    "NWU": [21.3200, 73.7800],
+    "NDN": [21.1200, 74.8800]
 }
 
 class RailRadarService:
@@ -453,16 +476,19 @@ class RailRadarService:
         if not route_polyline:
             route_polyline = [s["coordinates"] for s in stations if s.get("coordinates")]
 
-        # Calculate coordinates dynamically
+        # Compute dynamic timetable baseline for authentic positioning
+        tt_tracking = self.compute_dynamic_timetable_tracking(stations, total_dist, delay_mins)
+
+        # 1. Coordinates resolution
         curr_stn_code = current_loc.get("stationCode")
         curr_coords = None
 
-        # 1. Hardware GPS feed if active
+        # A. Hardware GPS feed if active
         gps_data = gps_service.get_gps_position(tno)
         if gps_data.get("status") == "ACTIVE" and gps_data.get("coordinates"):
             curr_coords = gps_data["coordinates"]
 
-        # 2. Real coordinates from live telemetry
+        # B. Real coordinates from live telemetry
         if not curr_coords:
             if current_loc.get("lat") and current_loc.get("lng"):
                 curr_coords = [float(current_loc["lat"]), float(current_loc["lng"])]
@@ -471,16 +497,20 @@ class RailRadarService:
             elif current_loc.get("coordinates") and len(current_loc["coordinates"]) >= 2:
                 curr_coords = [float(current_loc["coordinates"][0]), float(current_loc["coordinates"][1])]
 
-        # 3. Coordinates of current station
+        # C. Coordinates of current station if specified
         if not curr_coords and curr_stn_code:
             curr_coords = stn_coord_map.get(curr_stn_code) or self.get_station_coordinates(curr_stn_code)
 
-        # 4. Station origin coordinates if train not started
+        # D. Dynamic timetable coordinates along route
+        if not curr_coords and tt_tracking:
+            curr_coords = tt_tracking.get("current_coordinates")
+
+        # E. Station origin coordinates fallback
         if not curr_coords and stations:
             curr_coords = stations[0].get("coordinates")
 
-        # Dynamically calculate distance covered & journey progress
-        dist_covered = 0.0
+        # 2. Distance covered & progress
+        dist_covered = None
         if current_loc.get("distanceFromOriginKm") is not None:
             dist_covered = round(float(current_loc["distanceFromOriginKm"]), 1)
         elif curr_stn_code and stations:
@@ -488,14 +518,27 @@ class RailRadarService:
             if matched_stn:
                 dist_covered = round(float(matched_stn.get("distance_km") or 0.0), 1)
 
+        if dist_covered is None:
+            if tt_tracking:
+                dist_covered = tt_tracking.get("dist_covered", 0.0)
+            else:
+                dist_covered = 0.0
+
         dist_covered = max(0.0, min(total_dist, dist_covered))
         dist_remaining = round(max(0.0, total_dist - dist_covered), 1)
         progress_pct = round((dist_covered / total_dist * 100), 1) if total_dist > 0 else 0.0
 
-        # Current station and location text
+        # Update station statuses from dynamic timetable if live status is not per-station
+        if tt_tracking and "station_statuses" in tt_tracking:
+            for s in stations:
+                if not live_data or not s.get("status"):
+                    if s["code"] in tt_tracking["station_statuses"]:
+                        s["status"] = tt_tracking["station_statuses"][s["code"]]
+
+        # 3. Location text & station resolution
         loc_stn_name = current_loc.get("stationName") or (self.get_station_name_by_code(curr_stn_code) if curr_stn_code else None)
-        current_station_code = curr_stn_code or (stations[0]["code"] if stations else src_code)
-        current_station_name = loc_stn_name or (stations[0]["name"] if stations else src_name)
+        current_station_code = curr_stn_code or (tt_tracking.get("current_station_code") if tt_tracking else (stations[0]["code"] if stations else src_code))
+        current_station_name = loc_stn_name or (tt_tracking.get("current_station_name") if tt_tracking else (stations[0]["name"] if stations else src_name))
 
         if loc_stn_name:
             if current_loc.get("status") == "at-station":
@@ -504,6 +547,8 @@ class RailRadarService:
                 location_text = f"Passing {loc_stn_name}"
             else:
                 location_text = f"Approaching {loc_stn_name}"
+        elif tt_tracking and tt_tracking.get("location_text"):
+            location_text = tt_tracking["location_text"]
         elif stations:
             if dist_covered == 0.0:
                 location_text = f"At {stations[0]['name']} (Origin)"
@@ -512,13 +557,14 @@ class RailRadarService:
         else:
             location_text = "En route"
 
-        # Destination ETA
+        # 4. Destination ETA
         dest_station_obj = stations[-1] if stations else None
         sched_dest_eta = (dest_station_obj.get("scheduled_arr") if dest_station_obj else None) or (db_route[-1]["arr"] if db_route else "--:--")
         sched_dest_eta_fmt = self.format_iso_or_time(sched_dest_eta)
         pred_dest_eta = self.add_delay_to_time(sched_dest_eta_fmt, delay_mins) if sched_dest_eta_fmt != "--:--" else "--:--"
 
-        # Next Station resolution (Must NEVER be the same as current_station)
+        # 5. Next Station resolution (Must NEVER be the same as current_station unless terminus)
+        next_station_payload = None
         next_halt = live_data.get("nextHalt", {})
         next_stn_name = next_halt.get("stationName") if isinstance(next_halt, dict) else None
         next_stn_code = next_halt.get("stationCode") if isinstance(next_halt, dict) else None
@@ -535,15 +581,9 @@ class RailRadarService:
                     next_stn_obj = s
                     break
 
-        if not next_stn_obj and len(stations) > 1:
-            if current_station_code == stations[0]["code"]:
-                next_stn_obj = stations[1]
-            else:
-                next_stn_obj = stations[-1]
-        elif not next_stn_obj and len(stations) == 1:
-            next_stn_obj = stations[0]
-
-        if next_stn_obj and (next_stn_obj["code"] != current_station_code or len(stations) == 1):
+        if not next_stn_obj and tt_tracking and tt_tracking.get("next_station_payload"):
+            next_station_payload = tt_tracking["next_station_payload"]
+        elif next_stn_obj:
             n_code = next_stn_obj.get("code")
             n_name = next_stn_obj.get("name")
             n_sched = next_stn_obj.get("scheduled_arr") or next_stn_obj.get("scheduled_dep") or "--:--"
@@ -569,13 +609,33 @@ class RailRadarService:
                 "stoppage_time": "Terminus"
             }
 
-        # Speed: only real telemetry, else 0
+        # 6. Authentic Status calculation
+        raw_status = (live_data.get("status") or "").lower()
+        if raw_status in ("completed", "arrived", "finished"):
+            status_text = "Completed"
+            status_code = "COMPLETED"
+        elif raw_status in ("not-started", "not_started"):
+            status_text = "NOT STARTED"
+            status_code = "NOT_STARTED"
+        elif tt_tracking:
+            status_text = tt_tracking["status_text"]
+            status_code = tt_tracking["status_code"]
+        elif delay_mins > 5 or raw_status == "delayed":
+            status_text = f"Running (+{delay_mins}m)"
+            status_code = "DELAYED"
+        else:
+            status_text = "Running on-time" if delay_mins <= 0 else f"Running (+{delay_mins}m)"
+            status_code = "RUNNING"
+
+        # 7. Speed: only real telemetry or 0 if not started/completed, else None
         if gps_data.get("status") == "ACTIVE" and gps_data.get("speed") is not None:
             speed = int(gps_data["speed"])
         elif current_loc.get("speedKmh") is not None:
             speed = int(current_loc["speedKmh"])
-        else:
+        elif status_code in ("NOT_STARTED", "COMPLETED"):
             speed = 0
+        else:
+            speed = None
 
         # Last updated time
         last_updated_raw = live_data.get("lastUpdatedAt")
@@ -588,44 +648,6 @@ class RailRadarService:
             last_updated_time = "Live Real-Time"
         else:
             last_updated_time = "Timetable Schedule"
-
-        # Compute current IST time for authentic status calculation
-        now_utc = datetime.now(timezone.utc)
-        ist_now = now_utc + timedelta(hours=5, minutes=30)
-        curr_ist_mins = ist_now.hour * 60 + ist_now.minute
-
-        orig_stn = stations[0] if stations else None
-        dest_stn = stations[-1] if stations else None
-        orig_dep_raw = (orig_stn.get("scheduled_dep") if orig_stn else None) or (db_route[0]["dep"] if db_route else None)
-        dest_arr_raw = (dest_stn.get("scheduled_arr") if dest_stn else None) or (db_route[-1]["arr"] if db_route else None)
-        
-        orig_dep_mins = self.parse_time_to_mins(orig_dep_raw)
-        dest_arr_mins = self.parse_time_to_mins(dest_arr_raw)
-        dest_arr_day = (dest_stn.get("arr_day") if dest_stn else None) or (db_route[-1].get("arr_day", 1) if db_route else 1)
-
-        raw_status = (live_data.get("status") or "").lower()
-
-        if raw_status in ("completed", "arrived", "finished"):
-            status_text = "Completed"
-            status_code = "COMPLETED"
-        elif raw_status in ("not-started", "not_started"):
-            status_text = "NOT STARTED"
-            status_code = "NOT_STARTED"
-        elif live_data.get("currentLocation", {}).get("status") == "at-station" and dist_covered == 0.0 and (orig_dep_mins is not None and curr_ist_mins < orig_dep_mins + delay_mins):
-            status_text = "NOT STARTED"
-            status_code = "NOT_STARTED"
-        elif orig_dep_mins is not None and curr_ist_mins < orig_dep_mins and dist_covered == 0.0:
-            status_text = "NOT STARTED"
-            status_code = "NOT_STARTED"
-        elif dest_arr_day == 1 and dest_arr_mins is not None and orig_dep_mins is not None and dest_arr_mins > orig_dep_mins and curr_ist_mins >= (dest_arr_mins + delay_mins) and not live_data:
-            status_text = "Completed"
-            status_code = "COMPLETED"
-        elif delay_mins > 5 or raw_status == "delayed":
-            status_text = f"Running (+{delay_mins}m)"
-            status_code = "DELAYED"
-        else:
-            status_text = "Running on-time" if delay_mins <= 0 else f"Running (+{delay_mins}m)"
-            status_code = "RUNNING"
 
         # Dynamic Operational Factors
         eta_factors = []
@@ -679,9 +701,9 @@ class RailRadarService:
             "current_coordinates": [lat, lng] if (lat is not None and lng is not None) else None,
             "latitude": lat,
             "longitude": lng,
-            "speed": int(speed),
+            "speed": int(speed) if speed is not None else None,
             "heading_deg": 0,
-            "current_speed_kmh": int(speed),
+            "current_speed_kmh": int(speed) if speed is not None else None,
             "delay": delay_mins,
             "current_delay_mins": delay_mins,
             "confidence_level": "High" if delay_mins < 30 else "Moderate",
@@ -839,6 +861,211 @@ class RailRadarService:
             except Exception:
                 pass
         return None
+
+    def compute_dynamic_timetable_tracking(self, stations: list, total_dist: float, delay_mins: int = 0) -> dict:
+        if not stations:
+            return {}
+            
+        now_utc = datetime.now(timezone.utc)
+        ist_now = now_utc + timedelta(hours=5, minutes=30)
+        curr_mins = ist_now.hour * 60 + ist_now.minute
+
+        # Build absolute timeline for stations handling day transitions
+        timeline = []
+        t_offset = 0
+        last_dep_mins = None
+        
+        for idx, s in enumerate(stations):
+            is_start = (idx == 0)
+            is_end = (idx == len(stations) - 1)
+            
+            raw_arr = s.get("scheduled_arr")
+            raw_dep = s.get("scheduled_dep")
+            
+            arr_m = self.parse_time_to_mins(raw_arr) if not is_start else self.parse_time_to_mins(raw_dep)
+            dep_m = self.parse_time_to_mins(raw_dep) if not is_end else arr_m
+            
+            if arr_m is None: arr_m = last_dep_mins or 0
+            if dep_m is None: dep_m = arr_m
+            
+            if last_dep_mins is not None and arr_m < (last_dep_mins % 1440):
+                t_offset += 1440
+                
+            abs_arr = arr_m + t_offset
+            
+            if dep_m < arr_m:
+                t_offset += 1440
+                
+            abs_dep = dep_m + t_offset
+            last_dep_mins = dep_m
+            
+            timeline.append({
+                "index": idx,
+                "station": s,
+                "abs_arr": abs_arr,
+                "abs_dep": abs_dep,
+                "dist": float(s.get("distance_km") or 0.0)
+            })
+            
+        t_start = timeline[0]["abs_dep"]
+        t_end = timeline[-1]["abs_arr"]
+        
+        # Determine active trip
+        if curr_mins < t_start:
+            if (curr_mins + 1440) <= (t_end + delay_mins):
+                t_active = curr_mins + 1440
+            else:
+                t_active = curr_mins  # Will be < t_start -> NOT_STARTED
+        else:
+            t_active = curr_mins
+
+        # 1. NOT STARTED
+        if t_active < t_start:
+            stn_statuses = {s["code"]: "upcoming" for s in stations}
+            return {
+                "status_text": "NOT STARTED",
+                "status_code": "NOT_STARTED",
+                "dist_covered": 0.0,
+                "dist_remaining": total_dist,
+                "progress_pct": 0.0,
+                "speed": 0,
+                "location_text": f"At {stations[0]['name']} (Origin)",
+                "current_station_code": stations[0]["code"],
+                "current_station_name": stations[0]["name"],
+                "current_station_seq": 0,
+                "current_coordinates": stations[0].get("coordinates"),
+                "next_station_payload": {
+                    "code": stations[1]["code"] if len(stations) > 1 else stations[0]["code"],
+                    "name": stations[1]["name"] if len(stations) > 1 else stations[0]["name"],
+                    "distance_km": float(stations[1].get("distance_km") or 0.0) if len(stations) > 1 else 0.0,
+                    "expected_eta": stations[1].get("predicted_arr") or stations[1].get("scheduled_arr") or "--:--" if len(stations) > 1 else "--:--",
+                    "scheduled_eta": stations[1].get("scheduled_arr") or "--:--" if len(stations) > 1 else "--:--",
+                    "platform": str(stations[1].get("platform", "1")) if len(stations) > 1 else "1",
+                    "stoppage_time": "2 min"
+                },
+                "station_statuses": stn_statuses
+            }
+
+        # 2. COMPLETED
+        if t_active >= (t_end + delay_mins):
+            stn_statuses = {s["code"]: "departed" for s in stations}
+            return {
+                "status_text": "Completed",
+                "status_code": "COMPLETED",
+                "dist_covered": total_dist,
+                "dist_remaining": 0.0,
+                "progress_pct": 100.0,
+                "speed": 0,
+                "location_text": f"Arrived at {stations[-1]['name']} (Terminus)",
+                "current_station_code": stations[-1]["code"],
+                "current_station_name": stations[-1]["name"],
+                "current_station_seq": len(stations) - 1,
+                "current_coordinates": stations[-1].get("coordinates"),
+                "next_station_payload": {
+                    "code": stations[-1]["code"],
+                    "name": stations[-1]["name"],
+                    "distance_km": 0.0,
+                    "expected_eta": stations[-1].get("predicted_arr") or "--:--",
+                    "scheduled_eta": stations[-1].get("scheduled_arr") or "--:--",
+                    "platform": str(stations[-1].get("platform", "1")),
+                    "stoppage_time": "Terminus"
+                },
+                "station_statuses": stn_statuses
+            }
+
+        # 3. RUNNING
+        stn_statuses = {}
+        active_idx = 0
+        is_at_station = False
+        
+        for i in range(len(timeline)):
+            t_entry = timeline[i]
+            code = t_entry["station"]["code"]
+            
+            if t_active < t_entry["abs_arr"]:
+                stn_statuses[code] = "upcoming"
+            elif t_entry["abs_arr"] <= t_active <= t_entry["abs_dep"]:
+                stn_statuses[code] = "approaching"
+                active_idx = i
+                is_at_station = True
+            else:
+                stn_statuses[code] = "departed"
+                active_idx = i
+
+        curr_t = timeline[active_idx]
+        next_t = timeline[active_idx + 1] if active_idx + 1 < len(timeline) else curr_t
+
+        if is_at_station:
+            dist_covered = curr_t["dist"]
+            loc_text = f"At {curr_t['station']['name']}"
+            curr_code = curr_t["station"]["code"]
+            curr_name = curr_t["station"]["name"]
+            next_code = next_t["station"]["code"]
+            next_name = next_t["station"]["name"]
+            next_dist = round(max(0.0, next_t["dist"] - dist_covered), 1)
+            next_eta = next_t["station"].get("predicted_arr") or next_t["station"].get("scheduled_arr") or "--:--"
+            next_sched = next_t["station"].get("scheduled_arr") or "--:--"
+            curr_coords = curr_t["station"].get("coordinates")
+        else:
+            leg_dt = max(1, next_t["abs_arr"] - curr_t["abs_dep"])
+            frac = min(1.0, max(0.0, (t_active - curr_t["abs_dep"]) / leg_dt))
+            
+            dist_covered = round(curr_t["dist"] + frac * (next_t["dist"] - curr_t["dist"]), 1)
+            
+            if frac > 0.7:
+                loc_text = f"Approaching {next_t['station']['name']}"
+            else:
+                loc_text = f"Between {curr_t['station']['name']} and {next_t['station']['name']}"
+                
+            curr_code = curr_t["station"]["code"]
+            curr_name = curr_t["station"]["name"]
+            next_code = next_t["station"]["code"]
+            next_name = next_t["station"]["name"]
+            next_dist = round(max(0.0, next_t["dist"] - dist_covered), 1)
+            next_eta = next_t["station"].get("predicted_arr") or next_t["station"].get("scheduled_arr") or "--:--"
+            next_sched = next_t["station"].get("scheduled_arr") or "--:--"
+            stn_statuses[next_code] = "approaching"
+
+            c1 = curr_t["station"].get("coordinates")
+            c2 = next_t["station"].get("coordinates")
+            if c1 and c2 and len(c1) >= 2 and len(c2) >= 2:
+                curr_coords = [
+                    round(float(c1[0]) + frac * (float(c2[0]) - float(c1[0])), 6),
+                    round(float(c1[1]) + frac * (float(c2[1]) - float(c1[1])), 6)
+                ]
+            else:
+                curr_coords = c1 or c2
+
+        dist_covered = max(0.0, min(total_dist, dist_covered))
+        dist_remaining = round(max(0.0, total_dist - dist_covered), 1)
+        progress_pct = round((dist_covered / total_dist * 100), 1) if total_dist > 0 else 0.0
+
+        status_text = f"Running (+{delay_mins}m)" if delay_mins > 5 else ("Running (+{delay_mins}m)" if delay_mins > 0 else "Running on-time")
+        status_code = "DELAYED" if delay_mins > 5 else "RUNNING"
+
+        return {
+            "status_text": status_text,
+            "status_code": status_code,
+            "dist_covered": dist_covered,
+            "dist_remaining": dist_remaining,
+            "progress_pct": progress_pct,
+            "speed": None,
+            "location_text": loc_text,
+            "current_station_code": curr_code,
+            "current_station_name": curr_name,
+            "current_station_seq": active_idx + 1,
+            "current_coordinates": curr_coords,
+            "next_station_payload": {
+                "code": next_code,
+                "name": next_name,
+                "distance_km": next_dist,
+                "expected_eta": next_eta,
+                "scheduled_eta": next_sched,
+                "platform": str(next_t["station"].get("platform", "1")),
+                "stoppage_time": "2 min"
+            },
+            "station_statuses": stn_statuses
+        }
 
     def calculate_duration(self, raw_dep: str, raw_arr: str, dep_day: int = 1, arr_day: int = 1) -> str:
         try:
