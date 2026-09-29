@@ -897,16 +897,16 @@ class ControlRoomManager {
     }
 
     renderKPIs(overview, trains) {
-        const total = trains.length || overview.total_active_trains || 12;
+        const total = trains.length > 0 ? trains.length : (overview.total_active_trains ?? 0);
         const onTime = trains.length > 0 
             ? trains.filter(t => (t.current_delay_mins || 0) <= 5).length 
-            : (overview.on_time_trains || 6);
+            : (overview.on_time_trains ?? 0);
         const delayed = trains.length > 0 
             ? trains.filter(t => (t.current_delay_mins || 0) > 5 && (t.current_delay_mins || 0) <= 25).length 
-            : (overview.delayed_trains || 4);
+            : (overview.delayed_trains ?? 0);
         const sigDelay = trains.length > 0 
             ? trains.filter(t => (t.current_delay_mins || 0) > 25).length 
-            : (overview.significant_delay_trains || 2);
+            : (overview.significant_delay_trains ?? 0);
 
         const setTxt = (id, val) => {
             const el = document.getElementById(id);
@@ -920,7 +920,7 @@ class ControlRoomManager {
 
         const badge = document.getElementById('occSidebarAlertsBadge');
         if (badge) {
-            badge.textContent = this.alertsCache.length || 3;
+            badge.textContent = this.alertsCache ? this.alertsCache.length : 0;
         }
     }
 

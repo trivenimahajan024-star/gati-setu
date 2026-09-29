@@ -3,7 +3,21 @@
  * Connects Frontend to FastAPI Backend with Automatic Local Mock Fallback
  */
 
-const API_BASE = '/api';
+function getApiBase() {
+    if (typeof window !== 'undefined' && window.GATI_API_BASE) {
+        return window.GATI_API_BASE;
+    }
+    if (typeof localStorage !== 'undefined') {
+        const stored = localStorage.getItem('gatisetu_api_base');
+        if (stored) return stored.replace(/\/+$/, '');
+    }
+    if (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http') && !window.location.hostname.includes('appassets.androidplatform.net')) {
+        return '/api';
+    }
+    return 'http://10.0.2.2:8000/api';
+}
+
+const API_BASE = getApiBase();
 
 class RailwayApiClient {
     async fetchWithFallback(url, options = {}, fallbackFn = null) {
