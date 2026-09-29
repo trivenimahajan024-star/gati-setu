@@ -80,3 +80,28 @@ def serve_staff_login():
     if os.path.exists(index_path):
         return FileResponse(index_path)
     return {"message": "GatiSetu Staff Login page not found."}
+
+@app.get("/download/apk")
+@app.get("/api/download/apk")
+@app.get("/GatiSetu.apk")
+@app.get("/GatiSetu-v1.0.0.apk")
+@app.get("/app-release.apk")
+def download_android_apk():
+    """
+    Direct deployment endpoint to download the compiled GatiSetu Android APK.
+    """
+    candidates = [
+        os.path.abspath(os.path.join(FRONTEND_DIR, "downloads", "GatiSetu-v1.0.0.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "GatiSetu-v1.0.0.apk")),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "android", "app", "build", "outputs", "apk", "release", "app-release.apk"))
+    ]
+    for apk_path in candidates:
+        if os.path.exists(apk_path):
+            return FileResponse(
+                apk_path,
+                media_type="application/vnd.android.package-archive",
+                filename="GatiSetu-v1.0.0.apk"
+            )
+    from fastapi import HTTPException
+    raise HTTPException(status_code=404, detail="GatiSetu Android APK release file not found on server.")
+

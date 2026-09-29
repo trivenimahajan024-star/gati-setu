@@ -1,0 +1,69 @@
+name: Deploy GatiSetu Android APK
+run-name: Deploy GatiSetu Android APK & Release
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish-apk:
+    name: Package, Publish Artifacts & GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Verify APK Binary
+        run: |
+          echo "Verifying GatiSetu release APK package..."
+          if [ -f "GatiSetu-v1.0.0.apk" ]; then
+            ls -lh GatiSetu-v1.0.0.apk
+          elif [ -f "frontend/downloads/GatiSetu-v1.0.0.apk" ]; then
+            cp frontend/downloads/GatiSetu-v1.0.0.apk GatiSetu-v1.0.0.apk
+            ls -lh GatiSetu-v1.0.0.apk
+          else
+            echo "Error: GatiSetu APK release package not found!"
+            exit 1
+          fi
+
+      - name: Upload APK as Deployment Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GatiSetu-Android-v1.0.0-APK
+          path: GatiSetu-v1.0.0.apk
+          retention-days: 90
+          if-no-files-found: error
+
+      - name: Publish GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0
+          name: "GatiSetu Android Application v1.0.0"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            GatiSetu-v1.0.0.apk
+          body: |
+            ## GatiSetu - Dynamic ETA & Railway Operations Platform (Android APK Release)
+
+            ### 🚀 What's Inside:
+            - **Passenger Experience**: Live dynamic ETA predictions, authentic station halts, route progress tracking, and delay attribution.
+            - **Station Information Display (FIDS)**: Platform arrival/departure displays across 8,600+ Indian Railways stations.
+            - **Control Room Operations (OCC)**: Real-time network map, active alert feeds, caution orders, and sectional monitoring.
+            - **Native Android Packaging**: Standalone APK with responsive layout and real-time backend API connectivity.
+
+            ### 📲 Installation:
+            1. Download `GatiSetu-v1.0.0.apk` below.
+            2. Open on your Android phone and install. (Allow installation from this source if prompted).
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
