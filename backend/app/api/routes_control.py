@@ -21,10 +21,10 @@ def get_control_room_overview():
         trains = list(ex.map(lambda tno: railradar_service.get_train_data(tno) or store.get_train(tno), keys))
     trains = [t for t in trains if t]
     total = len(trains)
-    on_time = sum(1 for t in trains if t.get("current_delay_mins", 0) <= 5)
-    delayed = sum(1 for t in trains if 5 < t.get("current_delay_mins", 0) <= 30)
-    significant_delay = sum(1 for t in trains if t.get("current_delay_mins", 0) > 30)
-    avg_delay = round(sum(t.get("current_delay_mins", 0) for t in trains) / max(1, total), 1)
+    on_time = sum(1 for t in trains if int(t.get("current_delay_mins") or 0) <= 5)
+    delayed = sum(1 for t in trains if 5 < int(t.get("current_delay_mins") or 0) <= 30)
+    significant_delay = sum(1 for t in trains if int(t.get("current_delay_mins") or 0) > 30)
+    avg_delay = round(sum(int(t.get("current_delay_mins") or 0) for t in trains) / max(1, total), 1)
     
     active_tsr_count = sum(1 for t in trains for ev in t.get("active_events", []) if ev.get("type") == "tsr")
     congested_count = sum(1 for t in trains for ev in t.get("active_events", []) if ev.get("type") == "congestion")

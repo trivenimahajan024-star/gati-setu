@@ -21,6 +21,7 @@ def get_major_stations():
     return MAJOR_STATIONS
 
 @router.get("/station/{station_code}/display")
+@router.get("/station/{station_code}/board")
 def get_station_display(station_code: str):
     board = store.get_station_board(station_code)
     stn_info = next((s for s in MAJOR_STATIONS if s["code"] == station_code.upper().strip()), {"name": station_code.upper()})

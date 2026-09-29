@@ -342,6 +342,8 @@ class RailRadarService:
             delay_mins = int(api_delay) + injected_delay
         elif injected_delay > 0:
             delay_mins = injected_delay
+        elif store_train and (store_train.get("current_delay_mins") is not None or store_train.get("delay") is not None):
+            delay_mins = int(store_train.get("current_delay_mins") or store_train.get("delay") or 0)
         else:
             delay_mins = 0
 

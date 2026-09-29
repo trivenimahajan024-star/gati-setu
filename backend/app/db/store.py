@@ -1488,6 +1488,68 @@ class InMemoryRailwayStore:
                                 "delay_attribution": stn.get("delay_attribution", "")
                             })
 
+            # If fewer than 8 arrivals/departures, enrich from full railway schedule database
+            try:
+                from app.services.railradar import railradar_service
+                railradar_service._ensure_schedule_db_loaded()
+                db_trains = list(railradar_service._station_to_trains.get(stn_upper, []))
+                for tno in db_trains:
+                    if len(arrivals) >= 12 and len(departures) >= 12:
+                        break
+                    route = railradar_service._schedule_routes.get(tno, [])
+                    stop = next((r for r in route if r.get("station_code") == stn_upper), None)
+                    if not stop:
+                        continue
+                    t_info = railradar_service._train_names_db.get(tno, {})
+                    t_name = t_info.get("name") or f"Train {tno}"
+                    src_code = route[0]["station_code"] if route else "ORIGIN"
+                    dest_code = route[-1]["station_code"] if route else "DEST"
+                    src_name = railradar_service.get_station_name_by_code(src_code)
+                    dest_name = railradar_service.get_station_name_by_code(dest_code)
+
+                    raw_arr = stop.get("arr")
+                    raw_dep = stop.get("dep")
+                    formatted_arr = railradar_service.format_iso_or_time(raw_arr) if raw_arr else None
+                    formatted_dep = railradar_service.format_iso_or_time(raw_dep) if raw_dep else None
+
+                    pf = str((int(tno[-1]) % 6) + 1) if tno[-1].isdigit() else "1"
+
+                    if formatted_arr and formatted_arr != "--:--" and tno not in seen_arrivals and len(arrivals) < 12:
+                        seen_arrivals.add(tno)
+                        arrivals.append({
+                            "train_number": tno,
+                            "train_name": t_name,
+                            "short_name": t_name.split("-")[0].strip(),
+                            "source": f"{src_name} ({src_code})",
+                            "destination": f"{dest_name} ({dest_code})",
+                            "platform": pf,
+                            "scheduled_time": formatted_arr,
+                            "predicted_time": formatted_arr,
+                            "delay_mins": 0,
+                            "status": "Scheduled",
+                            "status_code": "RUNNING",
+                            "delay_attribution": "Timetable schedule"
+                        })
+
+                    if formatted_dep and formatted_dep != "--:--" and tno not in seen_departures and len(departures) < 12:
+                        seen_departures.add(tno)
+                        departures.append({
+                            "train_number": tno,
+                            "train_name": t_name,
+                            "short_name": t_name.split("-")[0].strip(),
+                            "source": f"{src_name} ({src_code})",
+                            "destination": f"{dest_name} ({dest_code})",
+                            "platform": pf,
+                            "scheduled_time": formatted_dep,
+                            "predicted_time": formatted_dep,
+                            "delay_mins": 0,
+                            "status": "Scheduled",
+                            "status_code": "RUNNING",
+                            "delay_attribution": "Timetable schedule"
+                        })
+            except Exception:
+                pass
+
             return {"arrivals": arrivals, "departures": departures}
 
     def inject_event(self, train_number: str, event_type: str, delay_mins: int = 5, description: str = None) -> dict:
@@ -1544,50 +1606,42 @@ class InMemoryRailwayStore:
             return copy.deepcopy(list(self._trains.values()))
 
     def get_active_alerts(self) -> list:
+        alerts = []
         with self._lock:
-            alerts = [
-                {
-                    "id": "occ_alert_1",
-                    "train_number": "12841",
-                    "title": "Train 12841 delayed by 2h 10m",
-                    "description": "Due to congestion near Mughalsarai",
-                    "time": "13:20",
-                    "severity": "critical",
-                    "type": "congestion"
-                },
-                {
-                    "id": "occ_alert_2",
-                    "train_number": "12650",
-                    "title": "Train 12650 running 45 min late",
-                    "description": "Signal halt at Vijayawada",
-                    "time": "12:55",
-                    "severity": "warning",
-                    "type": "signal_halt"
-                },
-                {
-                    "id": "occ_alert_3",
-                    "train_number": "12410",
-                    "title": "Train 12410 speed restriction",
-                    "description": "Due to maintenance work",
-                    "time": "11:40",
-                    "severity": "warning",
-                    "type": "speed_restriction"
-                }
-            ]
-            # Also dynamically include active events from any train
+            # 1. Include injected active events from any train
             for tno, train in self._trains.items():
                 for ev in train.get("active_events", []):
                     desc = ev.get("description", "")
-                    if desc and not any(a.get("description") == desc for a in alerts):
-                        alerts.append({
-                            "id": f"occ_ev_{tno}_{len(alerts)}",
-                            "train_number": tno,
-                            "title": f"Train {tno} - {ev.get('type', 'alert').upper()} (+{ev.get('delay_impact_mins', 0)}m)",
-                            "description": desc,
-                            "time": "Just now",
-                            "severity": "critical" if ev.get("delay_impact_mins", 0) >= 15 else "warning",
-                            "type": ev.get("type", "alert")
-                        })
+                    impact = int(ev.get("delay_impact_mins", 0))
+                    alerts.append({
+                        "id": f"occ_ev_{tno}_{len(alerts)}",
+                        "train_number": tno,
+                        "title": f"Train {tno} - {ev.get('type', 'alert').upper()} (+{impact}m)",
+                        "description": desc or f"Operational event recorded for Train {tno}",
+                        "time": "Active",
+                        "severity": "critical" if impact >= 30 else ("warning" if impact >= 10 else "info"),
+                        "type": ev.get("type", "alert")
+                    })
+
+            # 2. Derive alerts dynamically from trains with recorded delay > 5 minutes
+            for tno, train in self._trains.items():
+                delay = int(train.get("current_delay_mins") or train.get("delay") or 0)
+                if delay > 5:
+                    train_name = train.get("train_name", f"Train {tno}")
+                    severity = "critical" if delay > 30 else "warning"
+                    h = delay // 60
+                    m = delay % 60
+                    delay_str = f"{h}h {m}m" if h > 0 else f"{m}m"
+                    curr_loc = train.get("current_location") or "en route"
+                    alerts.append({
+                        "id": f"delay_alert_{tno}",
+                        "train_number": tno,
+                        "title": f"Train {tno} ({train_name}) delayed by {delay_str}",
+                        "description": f"Sectional delay recorded near {curr_loc}",
+                        "time": train.get("last_updated_time") or "Live",
+                        "severity": severity,
+                        "type": "congestion" if delay > 30 else "delay"
+                    })
             return alerts
 
 store = InMemoryRailwayStore()

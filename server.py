@@ -22,7 +22,7 @@ if __name__ == "__main__":
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
         url = f"http://127.0.0.1:{PORT}"
         print("==================================================================")
-        print("  🚄 GatiSetu - Dynamic ETA & Railway Operations Platform")
+        print("  [GatiSetu] - Dynamic ETA & Railway Operations Platform")
         print(f"  Serving Unified Application at: {url}")
         print("  Press Ctrl+C to stop the server.")
         print("==================================================================")
