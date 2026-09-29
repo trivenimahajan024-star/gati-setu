@@ -124,7 +124,20 @@ MAJOR_STATION_COORDS = {
     "BIY": [21.2200, 73.2500],
     "VYA": [21.2800, 73.4000],
     "NWU": [21.3200, 73.7800],
-    "NDN": [21.1200, 74.8800]
+    "NDN": [21.1200, 74.8800],
+    "CKP": [22.6811, 85.6268],
+    "JSG": [21.8545, 84.0089],
+    "RJN": [21.0963, 81.0375],
+    "G": [21.4589, 80.1963],
+    "BRD": [21.2291, 79.6888],
+    "SEG": [20.7937, 76.6946],
+    "MKU": [20.8841, 76.2023],
+    "CSN": [20.6667, 75.0167],
+    "KNW": [21.8300, 76.3500],
+    "ET": [22.6100, 77.7600],
+    "ANG": [19.0952, 74.7496],
+    "MTJ": [27.4924, 77.6737],
+    "FDB": [28.4089, 77.3178]
 }
 
 class RailRadarService:
@@ -474,6 +487,28 @@ class RailRadarService:
                     seen_codes.add(code_norm)
                     stations.append(stn)
 
+        # Interpolate any missing station coordinates along the route
+        known_indices = [i for i, s in enumerate(stations) if s.get("coordinates") and len(s["coordinates"]) >= 2]
+        if len(known_indices) >= 2:
+            for i, s in enumerate(stations):
+                if not s.get("coordinates") or len(s["coordinates"]) < 2:
+                    dist = float(s.get("distance_km") or 0.0)
+                    prev_i = max((k for k in known_indices if k < i), default=known_indices[0])
+                    next_i = min((k for k in known_indices if k > i), default=known_indices[-1])
+                    p_stn = stations[prev_i]
+                    n_stn = stations[next_i]
+                    p_dist = float(p_stn.get("distance_km") or 0.0)
+                    n_dist = float(n_stn.get("distance_km") or (p_dist + 1.0))
+                    span = max(0.1, n_dist - p_dist)
+                    frac = max(0.0, min(1.0, (dist - p_dist) / span))
+                    c_prev = p_stn["coordinates"]
+                    c_next = n_stn["coordinates"]
+                    s["coordinates"] = [
+                        round(c_prev[0] + frac * (c_next[0] - c_prev[0]), 5),
+                        round(c_prev[1] + frac * (c_next[1] - c_prev[1]), 5)
+                    ]
+                    stn_coord_map[s["code"]] = s["coordinates"]
+
         # Build route polyline if empty
         if not route_polyline:
             route_polyline = [s["coordinates"] for s in stations if s.get("coordinates")]
@@ -502,6 +537,10 @@ class RailRadarService:
         # C. Coordinates of current station if specified
         if not curr_coords and curr_stn_code:
             curr_coords = stn_coord_map.get(curr_stn_code) or self.get_station_coordinates(curr_stn_code)
+            if not curr_coords:
+                matched_stn = next((s for s in stations if s["code"] == curr_stn_code and s.get("coordinates")), None)
+                if matched_stn:
+                    curr_coords = matched_stn["coordinates"]
 
         # D. Dynamic timetable coordinates along route
         if not curr_coords and tt_tracking:
@@ -629,13 +668,20 @@ class RailRadarService:
             status_text = "Running on-time" if delay_mins <= 0 else f"Running (+{delay_mins}m)"
             status_code = "RUNNING"
 
-        # 7. Speed: only real telemetry or 0 if not started/completed, else None
+        # 7. Speed: real telemetry, store telemetry, timetable tracking, or 0 if stopped
         if gps_data.get("status") == "ACTIVE" and gps_data.get("speed") is not None:
             speed = int(gps_data["speed"])
         elif current_loc.get("speedKmh") is not None:
             speed = int(current_loc["speedKmh"])
         elif status_code in ("NOT_STARTED", "COMPLETED"):
             speed = 0
+        elif tt_tracking and tt_tracking.get("is_at_station"):
+            speed = 0
+        elif store_train and (store_train.get("current_speed_kmh") is not None or store_train.get("speed") is not None):
+            val = store_train.get("current_speed_kmh") if store_train.get("current_speed_kmh") is not None else store_train.get("speed")
+            speed = int(val) if val is not None else None
+        elif tt_tracking and tt_tracking.get("speed") is not None:
+            speed = int(tt_tracking["speed"])
         else:
             speed = None
 
@@ -730,6 +776,21 @@ class RailRadarService:
                 }
             ]
         }
+
+        # Dynamic ML ETA inference using trained XGBoost Regressor
+        try:
+            from app.services.ml_eta_service import ml_eta_service
+            ml_pred = ml_eta_service.predict_remaining_time(result)
+            if ml_pred.get("status") == "LIVE_PREDICTION_ACTIVE" and ml_pred.get("predicted_destination_eta"):
+                result["predicted_destination_eta"] = ml_pred["predicted_destination_eta"]
+                result["eta"] = ml_pred["predicted_destination_eta"]
+                if ml_pred.get("confidence_pct"):
+                    result["confidence_pct"] = ml_pred["confidence_pct"]
+                    result["confidence_level"] = "High" if result["confidence_pct"] >= 85 else "Moderate"
+                result["arrival_window"] = f"{self.add_delay_to_time(result['predicted_destination_eta'], -5)} – {self.add_delay_to_time(result['predicted_destination_eta'], 5)}"
+                result["ml_eta"] = ml_pred
+        except Exception:
+            pass
 
         # Save to live cache and update store
         self.cache[tno] = {"data": result, "timestamp": now}
@@ -1042,6 +1103,13 @@ class RailRadarService:
         dist_remaining = round(max(0.0, total_dist - dist_covered), 1)
         progress_pct = round((dist_covered / total_dist * 100), 1) if total_dist > 0 else 0.0
 
+        if is_at_station:
+            calc_speed = 0
+        else:
+            leg_dist = max(0.1, float(next_t["dist"]) - float(curr_t["dist"]))
+            leg_time_hours = max(0.05, float(next_t["abs_arr"] - curr_t["abs_dep"]) / 60.0)
+            calc_speed = min(120, max(45, int(round(leg_dist / leg_time_hours))))
+
         status_text = f"Running (+{delay_mins}m)" if delay_mins > 5 else ("Running (+{delay_mins}m)" if delay_mins > 0 else "Running on-time")
         status_code = "DELAYED" if delay_mins > 5 else "RUNNING"
 
@@ -1051,7 +1119,8 @@ class RailRadarService:
             "dist_covered": dist_covered,
             "dist_remaining": dist_remaining,
             "progress_pct": progress_pct,
-            "speed": None,
+            "is_at_station": is_at_station,
+            "speed": calc_speed,
             "location_text": loc_text,
             "current_station_code": curr_code,
             "current_station_name": curr_name,

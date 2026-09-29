@@ -961,12 +961,28 @@ class UnifiedGatiSetuApp {
         });
     }
 
+    extractStationCode(str) {
+        if (!str) return '';
+        const trimmed = String(str).trim();
+        const matchParen = trimmed.match(/\(([A-Za-z0-9]+)\)/);
+        if (matchParen) return matchParen[1].toUpperCase();
+        const parts = trimmed.split(/[-–—/]/);
+        const firstPart = parts[0].trim().toUpperCase();
+        if (firstPart.length >= 2 && firstPart.length <= 6 && !firstPart.includes(' ')) {
+            return firstPart;
+        }
+        return trimmed.toUpperCase();
+    }
+
     async searchTrainsBetween(fromStn, toStn) {
         const errorBox = document.getElementById('betweenOverviewError');
         const spinner = document.getElementById('betweenSearchSpinner');
         const btnSubmit = document.getElementById('btnSearchBetweenStations');
 
-        if (!fromStn || !toStn) {
+        const cleanFrom = this.extractStationCode(fromStn);
+        const cleanTo = this.extractStationCode(toStn);
+
+        if (!cleanFrom || !cleanTo) {
             if (errorBox) {
                 errorBox.textContent = 'Please enter both source and destination stations.';
                 errorBox.style.display = 'block';
@@ -974,7 +990,7 @@ class UnifiedGatiSetuApp {
             return;
         }
 
-        if (fromStn.toUpperCase() === toStn.toUpperCase()) {
+        if (cleanFrom.toUpperCase() === cleanTo.toUpperCase()) {
             if (errorBox) {
                 errorBox.textContent = 'Source and destination stations cannot be the same.';
                 errorBox.style.display = 'block';
@@ -987,7 +1003,7 @@ class UnifiedGatiSetuApp {
         if (btnSubmit) btnSubmit.disabled = true;
 
         try {
-            const data = await window.railwayApi.getTrainsBetweenStations(fromStn, toStn);
+            const data = await window.railwayApi.getTrainsBetweenStations(cleanFrom, cleanTo);
             if (spinner) spinner.style.display = 'none';
             if (btnSubmit) btnSubmit.disabled = false;
 
@@ -1288,19 +1304,28 @@ class UnifiedGatiSetuApp {
 
         // 3. Current Status (3 Compact Blocks for Details, Map & Route Screens)
         const loc = train.current_location || 'En route';
-        const shortLoc = loc.split('(')[0].replace('Passing', '').replace('Approaching', '').trim() || loc;
         const isNotStarted = (statusCode === 'NOT_STARTED' || statusRaw === 'NOT STARTED' || statusRaw === 'NOT-STARTED');
         const isCompleted = (statusCode === 'COMPLETED' || statusRaw === 'COMPLETED');
         const speedVal = (typeof train.current_speed_kmh === 'number') ? train.current_speed_kmh : (typeof train.speed === 'number' ? train.speed : null);
-        const currentSpeedText = (speedVal !== null && speedVal !== undefined) ? `${speedVal} km/h` : 'Data unavailable';
+        
+        let currentSpeedText;
+        if (speedVal !== null && speedVal !== undefined) {
+            currentSpeedText = `${speedVal} km/h`;
+        } else if (isNotStarted) {
+            currentSpeedText = '0 km/h (At Origin)';
+        } else if (isCompleted) {
+            currentSpeedText = '0 km/h (Arrived)';
+        } else {
+            currentSpeedText = 'Waiting for live data';
+        }
 
-        setTxt('detailsCurrentLocation', shortLoc);
+        setTxt('detailsCurrentLocation', loc);
         setTxt('detailsCurrentSpeed', currentSpeedText);
-        setTxt('mapCurrentLocation', shortLoc);
+        setTxt('mapCurrentLocation', loc);
         setTxt('mapCurrentSpeed', currentSpeedText);
-        setTxt('routeCurrentLocation', shortLoc);
+        setTxt('routeCurrentLocation', loc);
         setTxt('routeCurrentSpeed', currentSpeedText);
-        setTxt('mapToolbarSpeed', (speedVal !== null && speedVal !== undefined) ? `${currentSpeedText} • GPS` : 'Data unavailable');
+        setTxt('mapToolbarSpeed', (speedVal !== null && speedVal !== undefined) ? `${currentSpeedText} • GPS` : 'Waiting for live data');
 
         // Update Top Mini Status Banner
         const simStatusTextEl = document.getElementById('simStatusText');
@@ -1327,7 +1352,7 @@ class UnifiedGatiSetuApp {
             } else if (speedVal !== null && speedVal !== undefined) {
                 simSpeedIndicatorEl.textContent = `${speedVal} km/h • GPS`;
             } else {
-                simSpeedIndicatorEl.textContent = 'Data unavailable';
+                simSpeedIndicatorEl.textContent = 'Waiting for live data';
             }
         }
 
@@ -1342,14 +1367,27 @@ class UnifiedGatiSetuApp {
         }
 
         // 4. Visual Journey Progress Line
-        const srcName = train.source_code || (train.source ? train.source.split('(')[0].trim() : 'ORIGIN');
-        const destName = train.destination_code || (train.destination ? train.destination.split('(')[0].trim() : 'DEST');
-        setTxt('detailsSourceCode', srcName);
-        setTxt('detailsDestCode', destName);
-        setTxt('mapSourceCode', srcName);
-        setTxt('mapDestCode', destName);
-        setTxt('routeScreenSourceCode', srcName);
-        setTxt('routeScreenDestCode', destName);
+        const srcCode = train.source_code || 'ORIGIN';
+        const srcFullName = train.source ? (train.source.includes('(') ? train.source : `${train.source} (${srcCode})`) : srcCode;
+        const destCode = train.destination_code || 'DEST';
+        const destFullName = train.destination ? (train.destination.includes('(') ? train.destination : `${train.destination} (${destCode})`) : destCode;
+        
+        setTxt('detailsSourceCode', srcFullName);
+        setTxt('detailsDestCode', destFullName);
+        setTxt('mapSourceCode', srcFullName);
+        setTxt('mapDestCode', destFullName);
+        setTxt('routeScreenSourceCode', srcFullName);
+        setTxt('routeScreenDestCode', destFullName);
+
+        // Pre-populate station overview search fields
+        const fromInput = document.getElementById('fromStationOverviewInput');
+        const toInput = document.getElementById('toStationOverviewInput');
+        if (fromInput && srcCode) {
+            fromInput.value = `${srcCode} - ${train.source ? train.source.split('(')[0].trim() : srcCode}`;
+        }
+        if (toInput && destCode) {
+            toInput.value = `${destCode} - ${train.destination ? train.destination.split('(')[0].trim() : destCode}`;
+        }
 
         const pct = typeof train.journey_progress_pct === 'number' ? Math.round(train.journey_progress_pct * 10) / 10 : 0;
         const pctText = `${pct}% completed`;
@@ -1434,8 +1472,12 @@ class UnifiedGatiSetuApp {
         });
 
         const pct = typeof train.journey_progress_pct === 'number' ? Math.round(train.journey_progress_pct * 10) / 10 : 0;
-        const speed = typeof train.current_speed_kmh === 'number' ? train.current_speed_kmh : 0;
+        const rawSpeed = (typeof train.current_speed_kmh === 'number') ? train.current_speed_kmh : (typeof train.speed === 'number' ? train.speed : null);
         const currentLoc = train.current_location || 'En route';
+        const statusCode = (train.current_status_code || train.status || '').toUpperCase();
+        const statusRaw = (train.current_status || '').toUpperCase();
+        const isNotStarted = (statusCode === 'NOT_STARTED' || statusRaw === 'NOT STARTED' || statusRaw === 'NOT-STARTED');
+        const isCompleted = (statusCode === 'COMPLETED' || statusRaw === 'COMPLETED');
 
         // Determine current train position index relative to stations
         let currentTrainBeforeIndex = -1;
@@ -1450,23 +1492,54 @@ class UnifiedGatiSetuApp {
             currentTrainBeforeIndex = Math.min(stations.length - 1, Math.max(1, Math.floor((pct / 100) * stations.length)));
         }
 
-        const clampRailPct = Math.max(5, Math.min(95, pct));
+        // Calculate continuous rail percentage matching station nodes layout
+        let railPct = pct;
+        if (stations.length > 1) {
+            if (isNotStarted) {
+                railPct = 0;
+            } else if (isCompleted) {
+                railPct = 100;
+            } else if (currentTrainBeforeIndex > 0 && currentTrainBeforeIndex < stations.length) {
+                const prevStn = stations[currentTrainBeforeIndex - 1];
+                const nextStn = stations[currentTrainBeforeIndex];
+                const prevDist = parseFloat(prevStn.distance_km || 0);
+                const nextDist = parseFloat(nextStn.distance_km || prevDist + 40);
+                const currDist = parseFloat(train.distance_covered_km !== undefined ? train.distance_covered_km : (prevDist + nextDist) / 2);
+                const legSpan = Math.max(1, nextDist - prevDist);
+                const frac = Math.max(0.05, Math.min(0.95, (currDist - prevDist) / legSpan));
+                railPct = (((currentTrainBeforeIndex - 1) + frac) / (stations.length - 1)) * 100;
+            }
+        }
+        const clampRailPct = Math.max(3, Math.min(97, Math.round(railPct * 10) / 10));
+
+        let badgeSpeedText;
+        if (rawSpeed !== null && rawSpeed !== undefined && rawSpeed > 0) {
+            badgeSpeedText = `LIVE ${rawSpeed} km/h`;
+        } else if (rawSpeed === 0 || isNotStarted || isCompleted) {
+            if (isNotStarted) badgeSpeedText = 'AT ORIGIN (0 km/h)';
+            else if (isCompleted) badgeSpeedText = 'ARRIVED';
+            else badgeSpeedText = 'AT STATION (0 km/h)';
+        } else {
+            badgeSpeedText = 'LIVE • En route';
+        }
+
+        const minTrackWidth = Math.max(680, stations.length * 85);
 
         // -------------------------------------------------------------
         // 1. DESKTOP HORIZONTAL TIMELINE
         // -------------------------------------------------------------
         let desktopHtml = `
             <div class="route-timeline-desktop">
-                <div class="timeline-h-track-wrap">
+                <div class="timeline-h-track-wrap" style="min-width: ${minTrackWidth}px;">
                     <!-- Base Continuous Rail Track -->
                     <div class="timeline-h-rail-bg">
                         <div class="timeline-h-rail-fill" style="width: ${clampRailPct}%;"></div>
                         
                         <!-- Floating Live Train Pointer Badge -->
                         <div class="timeline-h-train-pointer" style="left: ${clampRailPct}%;">
-                            <div class="h-train-marker-badge" title="${currentLoc} (${speed} km/h)">
+                            <div class="h-train-marker-badge" title="${currentLoc} (${badgeSpeedText})">
                                 <i class="fa-solid fa-train"></i>
-                                <span>LIVE ${speed} km/h</span>
+                                <span>${badgeSpeedText}</span>
                             </div>
                             <div class="h-train-pointer-arrow"></div>
                             <div class="h-train-pulse-dot"></div>
@@ -1492,7 +1565,7 @@ class UnifiedGatiSetuApp {
                 : (stn.scheduled_dep && stn.scheduled_dep !== 'DEST' ? stn.scheduled_dep : (stn.scheduled_arr || '--:--'));
 
             desktopHtml += `
-                <div class="h-stn-node ${nodeClass}" style="flex: 1;">
+                <div class="h-stn-node ${nodeClass}" style="flex: 1 0 80px; min-width: 80px;">
                     <div class="h-node-bullet-wrap">
                         <div class="h-node-bullet" title="${stn.name} (${stn.code})">${bulletContent}</div>
                     </div>
@@ -1536,7 +1609,7 @@ class UnifiedGatiSetuApp {
                             <span class="v-current-pulse"></span>
                             <div class="v-current-text-wrap">
                                 <div class="v-current-title"><i class="fa-solid fa-train"></i> CURRENT TRAIN POSITION</div>
-                                <div class="v-current-sub">${currentLoc} • ${speed} km/h</div>
+                                <div class="v-current-sub">${currentLoc} • ${badgeSpeedText}</div>
                             </div>
                         </div>
                     </div>
@@ -1590,6 +1663,17 @@ class UnifiedGatiSetuApp {
         if (container) container.innerHTML = fullTimelineHtml;
         if (mapContainer) mapContainer.innerHTML = fullTimelineHtml;
         if (routeProgressContainer) routeProgressContainer.innerHTML = fullTimelineHtml;
+
+        setTimeout(() => {
+            [container, mapContainer, routeProgressContainer].forEach(c => {
+                if (!c) return;
+                const pointer = c.querySelector('.timeline-h-train-pointer');
+                if (pointer) {
+                    const scrollTarget = pointer.offsetLeft - (c.clientWidth / 2);
+                    c.scrollTo({ left: Math.max(0, scrollTarget), behavior: 'smooth' });
+                }
+            });
+        }, 120);
     }
 
     renderCompleteRouteTimeline(train) {
